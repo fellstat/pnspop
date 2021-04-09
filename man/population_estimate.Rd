@@ -18,9 +18,9 @@ or a random subset of those neighbors}
 }
 \value{
 A list with elements:
-'noDegreeEstimate': The nieve n_1 capture re-capture estimate
+'no_degree_estimate': The naive n_1 capture re-capture estimate
 'estimate': The n_2 population size estimate
-'crossSeedEstimate' : The n_3 cross-seed estimate
+'cross_seed_estimate' : The n_3 cross-seed estimate
 }
 \description{
 Estimate population size given neighbor identifiers

@@ -31,7 +31,7 @@ If NULL this is estimated from the number of hash collisions in subjectHash.}
 \value{
 A list with elements:
 'estimate': The n_2 population size estimate, adjusted for hashing
-'crossSeedEstimate' : The n_3 cross-seed estimate, adjusted for hashing
+'cross_seed_estimate' : The n_3 cross-seed estimate, adjusted for hashing
 'rho': The value of rho
 }
 \description{

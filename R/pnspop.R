@@ -348,3 +348,22 @@ population_estimate_hash <- function(subject, recruiter, subjectHash, degree, nb
   )
   result
 }
+
+
+#' This is example pns data
+#'
+#' @name faux_pns
+#' @docType data
+#' @keywords data
+#' @aliases rds nbrs_hash nbrs2 rho subj_hash
+#' @examples
+#' data(faux_pns)
+#' #rho estimated from data
+#'
+#' # no hashes
+#' population_estimate(rds$subject,rds$recruiter, rds$degree, nbrs2)
+#'
+#' #hashes
+#' population_estimate_hash(rds$subject,rds$recruiter,
+#'      subj_hash, rds$degree, nbrs_hash)
+NULL
