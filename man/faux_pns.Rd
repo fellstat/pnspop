@@ -17,7 +17,7 @@ data(faux_pns)
 #rho estimated from data
 
 # no hashes
-population_estimate(rds$subject,rds$recruiter, rds$degree, nbrs2)
+population_estimate_hash(rds$subject,rds$recruiter, rds$subject, rds$degree, nbrs2, rho=0)
 
 #hashes
 population_estimate_hash(rds$subject,rds$recruiter,

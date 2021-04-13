@@ -7,7 +7,7 @@
 population_estimate_hash(
   subject,
   recruiter,
-  subjectHash,
+  subject_hash,
   degree,
   nbrs,
   rho = NULL
@@ -16,9 +16,9 @@ population_estimate_hash(
 \arguments{
 \item{subject}{The integer ids of each subject}
 
-\item{recruiter}{The integer ids of the recruiter of each subject}
+\item{recruiter}{The integer ids of the recruiter of each subject (-1 for seeds)}
 
-\item{subjectHash}{The hashed identifier for the subject}
+\item{subject_hash}{The hashed identifier for the subject}
 
 \item{degree}{The degree of each subject}
 
@@ -26,7 +26,7 @@ population_estimate_hash(
 or a random subset of those neighbors.}
 
 \item{rho}{The probability two random individuals have the same hash value.
-If NULL this is estimated from the number of hash collisions in subjectHash.}
+If NULL this is estimated from the number of hash collisions in subject_hash.}
 }
 \value{
 A list with elements:

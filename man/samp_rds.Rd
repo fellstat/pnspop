@@ -4,7 +4,17 @@
 \alias{samp_rds}
 \title{Create and RDS sample from a graph}
 \usage{
-samp_rds(el, d, ns, g, ss, biased = TRUE, pr = c(0, 0.1, 0.9))
+samp_rds(
+  el,
+  d,
+  ns,
+  g,
+  ss,
+  biased = TRUE,
+  pr = c(0, 0.1, 0.9),
+  seeds = NULL,
+  exclude = c()
+)
 }
 \arguments{
 \item{el}{A matrix with three columns, where each row is an edge. Edges are from
@@ -25,6 +35,10 @@ indicating whether the edge is reciprocated (1 -> reciprocated, 0 -> directed).}
 probability that a subject tries to recruit no neighbors. The second element is the probability
 that a subject tries to recruit 1 neightbor, and so on. Subjects can not recruit more
 neighbors than they have available.}
+
+\item{seeds}{seed ids to override other options}
+
+\item{exclude}{ids to exclude from sampling}
 }
 \value{
 A data.frame with columns:
