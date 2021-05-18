@@ -321,8 +321,6 @@ population_estimate_hash <- function(subject, recruiter, subject_hash, degree, n
     m <- sum(wts)
     (dSample / dPopulation) * ns * length(unlist(outSet)) / m
   }
-  if(is.na(NTilda(2)))
-    browser()
   if(NTilda(2) < 2){
     opt <- list(root=0)
   }else if(NTilda(7000000000) > 7000000000){
@@ -468,32 +466,72 @@ bootstrap_population_estimate <- function(
   })
   n_free_nbrs <- sapply(free_nbrs, length)
 
+  #id <- 1:n
+  #ind <- sample.int(length(degree),n,TRUE, prob = 1 / degree)
+  #pop_degree <- degree[ind]
+  #pop_n_alters <- n_free_nbrs[ind]
+  #el <- make_configuration_graph(pop_degree)
+  #pop_nbrs <- lapply(1:n, function(i) c(el[el[,1]==i,2],el[el[,2]==i,1]))
   # generate one bootstrap sample
   bootstrap <- function(n, rho, rho_known){
     hash_size <- 1 / rho
-
-    ns <- table(get_seed(subject,recruiter))
+    seed <- get_seed(subject,recruiter)
+    ns <- table(seed)
+    sds <- as.numeric(names(ns))
     nsamp <- sum(ns)
 
+    nfn_by_seed <- sapply(sds, function(sd){
+      sum(n_free_nbrs[seed == sd])
+    })
 
     id <- 1:n
-    ind <- sample.int(length(degree),n,TRUE)
+    ind <- sample.int(length(degree),n,TRUE, prob = 1 / degree)
     pop_degree <- degree[ind]
     pop_n_alters <- n_free_nbrs[ind]
-
-    samp_id <- sample(id, nsamp, prob=pop_degree)
-    recr_id <- c(rep(-1,length(ns)), unlist(lapply(1:length(ns), function(i) rep(samp_id[i], ns[i]-1))))
-    nbrs <- lapply(1:nsamp, function(i){
-      nnbr <- pop_n_alters[samp_id[i]]
-      if(nnbr > 0) sample(id, size = nnbr, prob = pop_degree) else as.numeric(c())
+    browser()
+    samp <- pns_sample(pop_degree, ns)
+    bs_free_nbrs <- apply(cbind(samp$subject, samp$recrutier,1:length(samp$subject)), 1, function(x){
+      excl <- c(samp$subject[samp$recrutier == x[1]], x[2])
+      nb <- samp$nbrs[[x[3]]]
+      nb <- setdiff(nb, excl)
+      nb
     })
+
+    tots <- nfn_by_seed
+    nout <- sapply(sds, function(sd) sum(sapply(bs_free_nbrs[seed == sd], length)))
+    fix <- nout < tots
+    tots[!fix] <- round(tots[!fix] *  sum(tots[!fix]) / (sum(tots[!fix]) - sum(tots - nout)))
+    for(i in 1:length(sds)){
+      fn <- bs_free_nbrs[seed == sds[i]]
+      nn <- sapply(fn, length)
+      while(sum(nn) > tots[i]){
+        j <- sample.int(length(nn), 1, prob=nn)
+        fn[[j]] <- fn[[j]][sample.int(nn[j],1)]
+        nn[j] <- nn[j] - 1
+      }
+      bs_free_nbrs[seed == sds[i]] <- fn
+    }
+    # samp_id <- sample(sample(id, nsamp, prob=pop_degree))
+    # recr_id <- c(rep(-1,length(ns)), unlist(lapply(1:length(ns), function(i) rep(samp_id[i], ns[i]-1))))
+    #
+    # # remove edges observed in the RDS tree
+    # pop_degree_free <- pop_degree
+    # pop_degree_free[samp_id] <- pop_degree_free[samp_id] - 1
+    #
+    # bs_nbrs <- lapply(1:nsamp, function(i){
+    #   nnbr <- pop_n_alters[samp_id[i]]
+    #   s <- if(nnbr > 0) sample(id, size = nnbr, prob = pop_degree_free) else as.numeric(c())
+    #   pop_degree_free[s] <<- pop_degree_free[s] - 1
+    #   s
+    # })
+    browser()
 
     if(rho == 0){
       hash <- id
-      nbrs_hash <- nbrs
+      nbrs_hash <- bs_nbrs
     }else{
       hash <- floor(runif(n, min = 0, max=hash_size))
-      nbrs_hash <- lapply(nbrs,function(x) hash[x])
+      nbrs_hash <- lapply(bs_nbrs, function(x) hash[x])
     }
     subj_hash <- hash[samp_id]
     degree <- pop_degree[samp_id]
@@ -535,6 +573,87 @@ bootstrap_population_estimate <- function(
   attr(result,"bootstrap_samples") <- boots
   attr(result, "conf_level") <- conf_level
   result
+}
+
+# pop_degree : the degrees of the population
+# n_seed : The number recruited by each seed
+pns_sample <- function(pop_degree, n_seed){
+  p_seed <- n_seed / sum(n_seed)
+  n <- sum(n_seed)
+  N <- length(pop_degree)
+
+  r <- s <- rep(-1, n)
+  alt <- list()
+  for(i in 1:N){
+    alt[[i]] <- numeric()
+  }
+  d1 <- d <- pop_degree
+  not_sampled <- rep(TRUE, N)
+  seed <- rep(0, N)
+
+  #draw seeds
+  j <- 1
+  while(j <= length(p_seed)){
+    s[j] <- sample.int(N, 1, prob = d*not_sampled)
+    alt[[s[j]]] <- sample.int(N, d[s[j]], prob = d)
+    for(i in alt[[s[j]]]){
+      alt[[i]] <- c(alt[[i]], s[j])
+      d[i] <- d[i] - 1
+    }
+    d[s[j]] <- 0
+    n_seed[j] <- n_seed[j] - 1
+    seed[s[j]] <- j
+    j <- j + 1
+  }
+
+  #draw sample from seeds
+  while(sum(n_seed) > 0){
+    print(sum(n_seed))
+    # select a seed tree to recruit from
+    sd <- sample.int(length(n_seed), 1, prob=n_seed)
+    found <- FALSE
+    k <- 1
+    while(!found){
+      k <- k + 1
+      if(k > 500)
+        browser()
+      # draw a random individual from the seed tree to be a recruiter
+      recr <- sample.int(N, 1, prob=seed==sd)
+
+      # the alters of the recruiter who have not been recruited
+      fnbr <- setdiff(alt[[recr]], s)
+
+      if(length(fnbr) > 0){
+        found <- TRUE
+
+        # follow a random edge from the recruiter to a new subject
+        s[j] <- fnbr[sample.int(length(fnbr),1)]
+        r[j] <- recr
+
+        if(seed[s[j]] != 0)
+          browser()
+
+        # draw alters for the new subject
+        nnbr <- sample.int(N, d[s[j]], prob = d)
+        alt[[s[j]]] <- c(alt[[s[j]]], nnbr)
+        for(i in nnbr){
+          alt[[i]] <- c(alt[[i]], s[j])
+          d[i] <- d[i] - 1 # one edge for each alter is now accounted for (i.e. known to go to the PNS sample)
+        }
+        d[s[j]] <- 0 # all edges from subject accounted for
+        n_seed[sd] <- n_seed[sd] - 1
+        seed[s[j]] <- sd
+        j <- j + 1
+      }
+    }
+  }
+  list(
+    subject = s,
+    recruiter = r,
+    nbrs = alt[s],
+    degree = pop_degree[s],
+    seed = seed[s]
+  )
 }
 
 

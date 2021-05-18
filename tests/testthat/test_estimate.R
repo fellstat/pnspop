@@ -15,7 +15,7 @@ test_that("bias", {
   #
   skip_on_cran()
   n <- 5000 #pop size
-  hashSize <- 50000
+  hashSize <- 5000
   d <- rpois(n,lambda = 3) + 1
   el <- make_configuration_graph(d)
   sim <- function(){
