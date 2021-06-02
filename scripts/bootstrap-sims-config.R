@@ -1,14 +1,14 @@
 library(tidyverse)
 n <- 1000 #pop size
 hashSize <- 500000
-d <- rpois(n,lambda = 3) + 1#rep(2,n)#
+d <- rep(2,n)#rpois(n,lambda = 3) + 1#
 el <- make_configuration_graph(d)
 nbrs <- lapply(1:n, function(i) c(el[el[,1]==i,2],el[el[,2]==i,1]))
 sim <- function(){
   rho <- 1 / hashSize
   hash <- floor(runif(n, min = 0, max=hashSize))
   g <- rep(1,n)
-  seeds <- 7 # #of seeds
+  seeds <- 100 # #of seeds
   rds <- samp_rds(el, d, seeds,g,300,FALSE, pr = c(0,.1,.9))
   subj_hash <- hash[rds$subject]
   nbrs2 <- nbrs[rds$subject]
@@ -59,32 +59,36 @@ qplot( bs_log_vars[1,] / log_estimate_vars[1] )
 library(tidyverse)
 n <- 1000 #pop size
 #hashSize <- 500000
-d <- rep(2,n)#rpois(n,lambda = 3) + 1#
+d <- rpois(n,lambda = 3) + 1#rep(4,n)#
 el <- make_configuration_graph(d)
 nbrs <- lapply(1:n, function(i) c(el[el[,1]==i,2],el[el[,2]==i,1]))
 sim2 <- function(){
+  cat(".")
   rho <- 0#1 / hashSize
   hash <- 1:n#floor(runif(n, min = 0, max=hashSize))
   g <- rep(1,n)
-  seeds <- 100 # #of seeds
-  rds <- samp_rds(el, d, seeds,g,300,FALSE, pr = c(0,.1,.9))
+  seeds <- 30 # #of seeds
+  rds <- samp_rds(el, d, seeds,g,100,FALSE, pr = c(0,.9,.1))
   subj_hash <- hash[rds$subject]
   nbrs2 <- nbrs[rds$subject]
   nbrs_hash <- lapply(nbrs2,function(x) hash[x])
-  unlist(population_estimate_hash(
+  unlist(cross_sample_pse(
+         #population_estimate_hash(
     rds$subject,
     rds$recruiter,
     subj_hash,
     d[rds$subject],
     nbrs_hash,
-    rho))
+    rho
+    ,small_sample_fraction=FALSE
+    ))
 }
 
 
 rr <- sapply(1:100, function(x) sim2())
 rr[is.infinite(rr)] <- NA
 rowMeans(rr, na.rm = TRUE)
-
+hist(rr[1,])
 
 rr2 <- sapply(1:100, function(x) sim()[1:2,2])
 
@@ -105,3 +109,37 @@ while(s >0){
   }
 }
 
+
+
+n <- 1000 #pop size
+hashSize <- 1000
+d <- ceiling(rexp(n, rate = 1/5))#rpois(n,lambda = 5) + 1#rep(4,n)#
+el <- make_configuration_graph(d)
+nbrs <- lapply(1:n, function(i) c(el[el[,1]==i,2],el[el[,2]==i,1]))
+sim3 <- function(){
+  cat(".")
+  rho <- 1 / hashSize
+  hash <- floor(runif(n, min = 0, max=hashSize))
+  g <- rep(1,n)
+  seeds <- 10 # #of seeds
+  rds <- samp_rds(el, d, seeds,g,100,FALSE, pr = c(0,.9,.1))
+  subj_hash <- hash[rds$subject]
+  nbrs2 <- nbrs[rds$subject]
+  nbrs_hash <- lapply(nbrs2,function(x) hash[x])
+  unlist(cross_network_pse(
+    #cross_sample_pse(
+    #population_estimate_hash(
+    rds$subject,
+    rds$recruiter,
+    subj_hash,
+    d[rds$subject],
+    nbrs_hash,
+    rho
+    #,small_sample_fraction=FALSE
+  ))
+}
+rr <- sapply(1:100, function(x) sim3())
+rr[is.infinite(rr)] <- NA
+rowMeans(rr, na.rm = TRUE)
+hist(rr[1,])
+var(rr[1,])
