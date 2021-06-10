@@ -408,7 +408,157 @@ population_estimate_hash <- function(subject, recruiter, subject_hash, degree, n
 }
 
 
-cross_sample_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NULL, small_sample_fraction=TRUE){
+# cross_sample_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NULL, small_sample_fraction=TRUE){
+#   if(length(unique(subject)) != length(subject))
+#     stop("Subject ids must be unique")
+#   if(anyNA(subject))
+#     stop("No missing subject identifiers allowed")
+#   if(anyNA(recruiter))
+#     stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
+#   if(anyNA(degree)){
+#     warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
+#     degree[is.na(degree)] <- median(degree, na.rm=TRUE)
+#   }
+#   s2 <- 1:length(subject)
+#   r2 <- match(recruiter, subject)
+#   r2[is.na(r2)] <- -1
+#   subject <- s2
+#   recruiter <- r2
+#   #nbrs2 <- list()
+#   #nbrs2[subject] <- nbrs
+#   #nbrs <- nbrs2
+#   ns <- length(na.omit(subject))
+#   if(is.null(rho)){
+#     n_matches <- sum(sapply(subject_hash,function(h) sum(subject_hash==h,na.rm=TRUE) - 1))
+#     rho <- n_matches / (ns*(ns-1))
+#   }
+#
+#   seed <- get_seed(subject,recruiter)
+#   seed_ids <- unique(seed)
+#   out_sets <- list()
+#   match_sets <- list()
+#   a_n <- rep(NA, length(seed_ids))
+#   for(s in seed_ids){
+#     out_sets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
+#       excl <- subject_hash[recruiter == x[1]]
+#       if(x[2] != -1)
+#         excl <- c(excl, subject_hash[match(x[2], subject)])
+#       nb <- nbrs[[x[1]]]
+#       for(e in excl){
+#         i <- which(nb %in% e)
+#         if(length(i) > 0)
+#           nb <- nb[-i[1]]
+#       }
+#       nb
+#     })
+#     match_sets[[s]] <- lapply(out_sets[[s]], function(x) x[x %in% subject_hash[seed != s]])
+#     a_n[s] <- length(unlist(out_sets[[s]]))
+#   }
+#   #outset_degree <- apply(cbind(subject,recruiter), 1, function(x){
+#   #  nb <- nbrs[[x[1]]]
+#   #  if(x[2] != -1){
+#   #    excl <- subject_hash[match(x[2], subject)]
+#   #    i <- which(nb %in% excl)
+#   #    if(length(i) > 0)
+#   #      nb <- nb[-i[1]]
+#   #  }
+#   #  length(nb)
+#   #})
+#
+#   N_tilda <- function(N){
+#     if(ns/N < .1 || small_sample_fraction){
+#       deg_wts <- 1 / degree
+#     }else{
+#       if (exists(".Random.seed", .GlobalEnv))
+#         oldseed <- .GlobalEnv$.Random.seed
+#       else
+#         oldseed <- NULL
+#
+#       deg_wts <- RDS::gile.ss.weights(degree, N = max(ns, N), number.ss.iterations = 3)
+#
+#       if (!is.null(oldseed))
+#         .GlobalEnv$.Random.seed <- oldseed
+#       else
+#         rm(".Random.seed", envir = .GlobalEnv)
+#     }
+#     d_population <- sum(deg_wts * degree) / sum(deg_wts)
+#
+#     numerator <- 0
+#     denominator <- 0
+#     for(s in seed_ids){
+#       out_set <- out_sets[[s]]
+#       match_set <- match_sets[[s]]
+#
+#       if(is.null(out_set))
+#         next
+#       wts <-  lapply(match_set, function(x){
+#         wts1 <- list()
+#         for(a in x){
+#           mId <- which(subject_hash == a & seed != s)
+#           wts1[[length(wts1) + 1]] <- 1 / (d_population * rho * (N - 1) / (degree[mId] - 1) + 1)
+#         }
+#         wts1
+#       })
+#       wts <- unlist(wts)
+#       wts[is.nan(wts)] <- 1
+#       m <- sum(wts)
+#       n_within <- sum(seed == s & !is.na(subject_hash))
+#       d_sample <- mean(degree[seed == s]) - (n_within - 1) / n_within
+#       #d_sample <- sum(outset_degree[seed == s])
+#       #dPopulation <- ns / sum(1/degree)
+#       #nWithout <- sum(seed != s & !is.na(subject_hash))
+#       numerator <- numerator + sum(na.omit(a_n[-s])) * d_sample * n_within / #d_population
+#         (d_population - (ns - length(seed_ids)) / N)#( (sum(seed != s) - length(seed_ids) + 1) + (sum(seed == s) - 2)/2) / N)
+#       denominator <- denominator + m
+#     }
+#     numerator / denominator
+#   }
+#   if(is.na(N_tilda(ns))) browser()
+#   if(N_tilda(ns) < ns){
+#     opt <- list(root=ns)
+#   }else if(N_tilda(7000000000) > 7000000000){
+#     opt <- list(root=Inf)
+#   } else{
+#     opt <- uniroot(function(N) N_tilda(N) - N, interval=c(ns, 7000000000))
+#   }
+#   result <- list(
+#     estimate= opt$root,
+#     rho=rho
+#   )
+#   result
+# }
+
+
+#' Estimate population size given privatized (hashed) neighbor identifiers
+#' @param subject The integer ids of each subject
+#' @param recruiter The integer ids of the recruiter of each subject (-1 for seeds)
+#' @param subject_hash The hashed identifier for the subject
+#' @param degree The degree of each subject
+#' @param nbrs A list, each element indicating the hashed identifier of the neighbors of each subject,
+#' or a random subset of those neighbors.
+#' @param rho The probability two random individuals have the same hash value. If NULL this is estimated from the number of hash collisions in subject_hash.
+#' @param method combined uses both the sample and the nominated alters for potential matches. "sample" uses only recruited individuals and "alter" uses only their nominated alters.
+#' @param small_sample_fraction If TRUE, simplifies estimation by assuming a small sample fraction.
+#' @return
+#' A vector with elements:
+#' 'estimate': The population size estimate, adjusted for hashing
+#' 'rho': The value of rho
+#' @examples
+#' 2+2
+cross_network_pse <- function(
+  subject,
+  recruiter,
+  subject_hash,
+  degree,
+  nbrs,
+  rho=NULL,
+  method = c("combined","alter","sample"),
+  small_sample_fraction=TRUE){
+
+  method <- match.arg(method)
+  add_alter <- method %in% c("combined","alter")
+  add_sample <- method %in% c("combined","sample")
+
   if(length(unique(subject)) != length(subject))
     stop("Subject ids must be unique")
   if(anyNA(subject))
@@ -437,7 +587,8 @@ cross_sample_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho
   seed_ids <- unique(seed)
   out_sets <- list()
   match_sets <- list()
-  a_n <- rep(NA, length(seed_ids))
+  match_degrees <- list()
+  o <- rep(0, max(seed_ids))
   for(s in seed_ids){
     out_sets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
       excl <- subject_hash[recruiter == x[1]]
@@ -452,142 +603,32 @@ cross_sample_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho
       nb
     })
     match_sets[[s]] <- lapply(out_sets[[s]], function(x) x[x %in% subject_hash[seed != s]])
-    a_n[s] <- length(unlist(out_sets[[s]]))
-  }
-  #outset_degree <- apply(cbind(subject,recruiter), 1, function(x){
-  #  nb <- nbrs[[x[1]]]
-  #  if(x[2] != -1){
-  #    excl <- subject_hash[match(x[2], subject)]
-  #    i <- which(nb %in% excl)
-  #    if(length(i) > 0)
-  #      nb <- nb[-i[1]]
-  #  }
-  #  length(nb)
-  #})
-
-  N_tilda <- function(N){
-    if(ns/N < .1 || small_sample_fraction){
-      deg_wts <- 1 / degree
-    }else{
-      if (exists(".Random.seed", .GlobalEnv))
-        oldseed <- .GlobalEnv$.Random.seed
-      else
-        oldseed <- NULL
-
-      deg_wts <- RDS::gile.ss.weights(degree, N = max(ns, N), number.ss.iterations = 3)
-
-      if (!is.null(oldseed))
-        .GlobalEnv$.Random.seed <- oldseed
-      else
-        rm(".Random.seed", envir = .GlobalEnv)
-    }
-    d_population <- sum(deg_wts * degree) / sum(deg_wts)
-
-    numerator <- 0
-    denominator <- 0
-    for(s in seed_ids){
-      out_set <- out_sets[[s]]
-      match_set <- match_sets[[s]]
-
-      if(is.null(out_set))
-        next
-      wts <-  lapply(match_set, function(x){
-        wts1 <- list()
-        for(a in x){
-          mId <- which(subject_hash == a & seed != s)
-          wts1[[length(wts1) + 1]] <- 1 / (d_population * rho * (N - 1) / (degree[mId] - 1) + 1)
-        }
-        wts1
-      })
-      wts <- unlist(wts)
-      wts[is.nan(wts)] <- 1
-      m <- sum(wts)
-      n_within <- sum(seed == s & !is.na(subject_hash))
-      d_sample <- mean(degree[seed == s]) - (n_within - 1) / n_within
-      #d_sample <- sum(outset_degree[seed == s])
-      #dPopulation <- ns / sum(1/degree)
-      #nWithout <- sum(seed != s & !is.na(subject_hash))
-      numerator <- numerator + sum(na.omit(a_n[-s])) * d_sample * n_within / #d_population
-        (d_population - (ns - length(seed_ids)) / N)#( (sum(seed != s) - length(seed_ids) + 1) + (sum(seed == s) - 2)/2) / N)
-      denominator <- denominator + m
-    }
-    numerator / denominator
-  }
-  if(is.na(N_tilda(ns))) browser()
-  if(N_tilda(ns) < ns){
-    opt <- list(root=ns)
-  }else if(N_tilda(7000000000) > 7000000000){
-    opt <- list(root=Inf)
-  } else{
-    opt <- uniroot(function(N) N_tilda(N) - N, interval=c(ns, 7000000000))
-  }
-  result <- list(
-    estimate= opt$root,
-    rho=rho
-  )
-  result
-}
-
-
-
-cross_network_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NULL){
-  if(length(unique(subject)) != length(subject))
-    stop("Subject ids must be unique")
-  if(anyNA(subject))
-    stop("No missing subject identifiers allowed")
-  if(anyNA(recruiter))
-    stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
-  if(anyNA(degree)){
-    warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
-    degree[is.na(degree)] <- median(degree, na.rm=TRUE)
-  }
-  s2 <- 1:length(subject)
-  r2 <- match(recruiter, subject)
-  r2[is.na(r2)] <- -1
-  subject <- s2
-  recruiter <- r2
-  #nbrs2 <- list()
-  #nbrs2[subject] <- nbrs
-  #nbrs <- nbrs2
-  ns <- length(na.omit(subject))
-  if(is.null(rho)){
-    n_matches <- sum(sapply(subject_hash,function(h) sum(subject_hash==h,na.rm=TRUE) - 1))
-    rho <- n_matches / (ns*(ns-1))
-  }
-
-  seed <- get_seed(subject,recruiter)
-  seed_ids <- unique(seed)
-  out_sets <- list()
-  match_sets <- list()
-  o <- rep(0, length(seed_ids))
-  for(s in seed_ids){
-    out_sets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
-      excl <- subject_hash[recruiter == x[1]]
-      if(x[2] != -1)
-        excl <- c(excl, subject_hash[match(x[2], subject)])
-      nb <- nbrs[[x[1]]]
-      for(e in excl){
-        i <- which(nb %in% e)
-        if(length(i) > 0)
-          nb <- nb[-i[1]]
+    match_degrees[[s]] <-  unlist(lapply(match_sets[[s]], function(x){
+      deg <- list()
+      for(a in x){
+        mId <- which(subject_hash == a & seed != s)
+        deg[[length(deg) + 1]] <- degree[mId]
       }
-      nb
-    })
-    match_sets[[s]] <- lapply(out_sets[[s]], function(x) x[x %in% subject_hash[seed != s]])
+      deg
+    }))
+    if(length(match_degrees) < s || is.null(match_degrees[[s]]))
+      match_degrees[[s]] <- numeric()
     o[s] <- length(unlist(out_sets[[s]]))
   }
-  cross_net_matches <- rep(0, length(seed_ids))
-  o_mc <- rep(0, length(seed_ids))
+  cross_net_matches <- rep(0, max(seed_ids))
+  o_mc <- rep(0, max(seed_ids))
   for(s in seed_ids){
     stree <- unlist(out_sets[[s]])
     scross <- unlist(out_sets[-s])
-    for(i in seq_along(stree))
+    for(i in seq_along(stree)){
       cross_net_matches[s] <- cross_net_matches[s] + sum(stree[i] == scross)
+    }
     o_mc[s] <- sum(o[-s])
   }
 
   N_tilda <- function(N){
-    if(ns/N < .1 || TRUE){
+    if(#ns/N < .1 ||
+       small_sample_fraction){
       deg_wts <- 1 / degree
     }else{
       if (exists(".Random.seed", .GlobalEnv))
@@ -595,7 +636,12 @@ cross_network_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rh
       else
         oldseed <- NULL
 
-      deg_wts <- RDS::gile.ss.weights(degree, N = max(ns, N), number.ss.iterations = 3)
+      deg_wts <- RDS::gile.ss.weights(
+        degree,
+        N = max(ns, N),
+        number.ss.iterations = 5,
+        SS.infinity = 0.000001
+        )
 
       if (!is.null(oldseed))
         .GlobalEnv$.Random.seed <- oldseed
@@ -605,37 +651,51 @@ cross_network_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rh
     d_population <- sum(deg_wts * degree) / sum(deg_wts)
     d_tilda <- sum(deg_wts * degree * degree) / sum(deg_wts * degree)
 
-    ptrue <- sapply(degree,
-                    function(deg) ((rho * (d_population*(N-1) - ns + length(seed_ids))) /
-                                     (deg - 1) + 1)^(-1))
-    p_1 <- sum(deg_wts * degree^2 * ptrue) / sum(deg_wts * degree^2)
-    p_2 <- sum(deg_wts * degree * ptrue) / sum(deg_wts * degree)
-    phi_value <- p_2 / (1 - p_1 + p_2)
+    expected_matches <- 0
+    observed_matches <- 0
+    if(add_alter){
+      ptrue <- sapply(degree,
+                      function(deg) ((rho * (d_population*(N-1) - ns + length(seed_ids))) /
+                                       (deg - 1) + 1)^(-1))
+      ptrue[degree == 1] <- 0
+      p_1 <- sum(deg_wts * degree^2 * ptrue) / sum(deg_wts * degree^2)
+      p_2 <- sum(deg_wts * degree * ptrue) / sum(deg_wts * degree)
+      phi_value <- p_2 / (1 - p_1 + p_2)
+      if(phi_value <= 0) return(N-1)
+      expected_matches <- (d_tilda - 1) * sum(o*o_mc) / (N * d_population - (ns - length(seed_ids)))
+      observed_matches <- phi_value * sum(cross_net_matches)
+      if(is.na(sum(cross_net_matches))) browser()
+      if(sum(cross_net_matches) == 0) return(Inf)
+    }
+    if(add_sample){
+      for(s in seed_ids){
+        out_set <- out_sets[[s]]
+        match_set <- match_sets[[s]]
 
-    # phi <- function(N, phi_prop=1){
-    #  ptrue <- sapply(degree,
-    #                  function(deg) ((rho * (d_population*(N-1) - ns + length(seed_ids))) /
-    #                                   (deg - 1) + 1)^(-1))
-    #
-    #  phi_prop * sum(deg_wts * degree^2 * ptrue) / sum(deg_wts * degree^2) +
-    #    (1-phi_prop) * sum(deg_wts * degree * ptrue) / sum(deg_wts * degree)
-    #  #sum(deg_wts * ptrue) / sum(deg_wts )
-    # }
-    # phi_value <- uniroot(function(phi_prop) phi(N,phi_prop) - phi_prop,c(0,1))$root
-    if(phi_value <= 0) return(N-1)
-    numerator <- (d_tilda - 1) * sum(o*o_mc) / (d_population - (ns - length(seed_ids)) / N)
-    denominator <- phi_value * sum(cross_net_matches)
-    if(is.na(sum(cross_net_matches))) browser()
-    if(sum(cross_net_matches) == 0) return(Inf)
-    if(is.na(numerator / denominator)) browser()
-    numerator / denominator
+        if(is.null(out_set))
+          next
+        wts <- 1 / (d_population * rho * (N - 1) / (match_degrees[[s]] - 1) + 1)
+        wts[is.nan(wts)] <- 1
+        m <- sum(wts)
+
+        n_within <- sum(seed == s & !is.na(subject_hash))
+        d_sample <- mean(degree[seed == s]) - (n_within - 1) / n_within
+        expected_matches <- expected_matches + sum(na.omit(o[-s])) * d_sample * n_within /
+          (N * d_population - (ns - length(seed_ids)) )
+        observed_matches <- observed_matches + m
+      }
+    }
+    #if(is.na(numerator / denominator)) browser()
+    expected_matches - observed_matches
   }
-  if(N_tilda(ns) < ns){
+  if(is.na(N_tilda(ns)))
+    browser()
+  if(N_tilda(ns) < 0){
     opt <- list(root=ns)
-  }else if(N_tilda(7000000000) > 7000000000){
+  }else if(N_tilda(7000000000) > 0){
     opt <- list(root=Inf)
   } else{
-    opt <- uniroot(function(N) N_tilda(N) - N, interval=c(ns, 7000000000))
+    opt <- uniroot(function(N) N_tilda(N), interval=c(ns, 7000000000))
   }
   result <- list(
     estimate= opt$root,
@@ -671,19 +731,24 @@ cross_network_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rh
 #' bootstrap_population_estimate(rds$subject,rds$recruiter,
 #'   subj_hash, rds$degree, nbrs_hash, rho, 50)
 #' }
-bootstrap_population_estimate <- function(
+bootstrap_pse <- function(
   subject,
   recruiter,
   subject_hash,
   degree,
   nbrs,
   rho=NULL,
+  method = c("combined","alter","sample"),
+  small_sample_fraction = TRUE,
   n_bootstrap=500,
   conf_level = .95,
   progress = TRUE){
 
+  method <- match.arg(method)
+
   # Get point estimates of population saize and rho
-  point_estimate <- population_estimate_hash(subject, recruiter, subject_hash, degree, nbrs, rho)
+  point_estimate <- cross_network_pse(subject, recruiter, subject_hash, degree, nbrs, rho,
+                                      method=method,small_sample_fraction=small_sample_fraction)
 
   # Get the number of alter ids recorded excluding recruiter and recrutee
   s2 <- 1:length(subject)
@@ -702,111 +767,86 @@ bootstrap_population_estimate <- function(
     nb
   })
   n_free_nbrs <- sapply(free_nbrs, length)
+  hash_size <- 1 / rho
+  seed <- get_seed(subject,recruiter)
+  ns <- table(seed)
+  sds <- as.numeric(names(ns))
+  nsamp <- sum(ns)
 
-  #id <- 1:n
-  #ind <- sample.int(length(degree),n,TRUE, prob = 1 / degree)
-  #pop_degree <- degree[ind]
-  #pop_n_alters <- n_free_nbrs[ind]
-  #el <- make_configuration_graph(pop_degree)
-  #pop_nbrs <- lapply(1:n, function(i) c(el[el[,1]==i,2],el[el[,2]==i,1]))
+  # calculate the rate at which alters are nominated
+  nfn_by_seed <- sapply(sds, function(sd){
+    sum(n_free_nbrs[seed == sd])
+  })
+  maxfn_by_seed <- sapply(sds, function(sd){
+    sum(degree[seed == sd]) - 2 * (sum(seed == sd) - 1)
+  })
+  nom_rate_by_seed <- nfn_by_seed / maxfn_by_seed
+
   # generate one bootstrap sample
   bootstrap <- function(n, rho, rho_known){
-    hash_size <- 1 / rho
-    seed <- get_seed(subject,recruiter)
-    ns <- table(seed)
-    sds <- as.numeric(names(ns))
-    nsamp <- sum(ns)
-
-    nfn_by_seed <- sapply(sds, function(sd){
-      sum(n_free_nbrs[seed == sd])
-    })
 
     id <- 1:n
     ind <- sample.int(length(degree),n,TRUE, prob = 1 / degree)
     pop_degree <- degree[ind]
     pop_n_alters <- n_free_nbrs[ind]
-    browser()
+
+    # draw sample
     samp <- pns_sample(pop_degree, ns)
-    bs_free_nbrs <- apply(cbind(samp$subject, samp$recrutier,1:length(samp$subject)), 1, function(x){
-      excl <- c(samp$subject[samp$recrutier == x[1]], x[2])
-      nb <- samp$nbrs[[x[3]]]
-      nb <- setdiff(nb, excl)
-      nb
-    })
 
-    tots <- nfn_by_seed
-    nout <- sapply(sds, function(sd) sum(sapply(bs_free_nbrs[seed == sd], length)))
-    fix <- nout < tots
-    tots[!fix] <- round(tots[!fix] *  sum(tots[!fix]) / (sum(tots[!fix]) - sum(tots - nout)))
-    for(i in 1:length(sds)){
-      fn <- bs_free_nbrs[seed == sds[i]]
-      nn <- sapply(fn, length)
-      while(sum(nn) > tots[i]){
-        j <- sample.int(length(nn), 1, prob=nn)
-        fn[[j]] <- fn[[j]][sample.int(nn[j],1)]
-        nn[j] <- nn[j] - 1
-      }
-      bs_free_nbrs[seed == sds[i]] <- fn
+    # match observed alter nomination rates
+    bs_nbrs <- samp$nbrs
+    for(i in seq_along(bs_nbrs)){
+      alters <- bs_nbrs[[i]]
+      alters <- setdiff(alters, samp$subject[samp$recruiter == samp$subject[i]])
+      #if(samp$recruiter[i] != -1)
+      #  alters <- setdiff(alters, samp$subject[samp$subject == samp$recruiter[i]])
+      alters <- alters[runif(length(alters)) < nom_rate_by_seed[samp$seed[i]]]
+      bs_nbrs[[i]] <- alters
     }
-    # samp_id <- sample(sample(id, nsamp, prob=pop_degree))
-    # recr_id <- c(rep(-1,length(ns)), unlist(lapply(1:length(ns), function(i) rep(samp_id[i], ns[i]-1))))
-    #
-    # # remove edges observed in the RDS tree
-    # pop_degree_free <- pop_degree
-    # pop_degree_free[samp_id] <- pop_degree_free[samp_id] - 1
-    #
-    # bs_nbrs <- lapply(1:nsamp, function(i){
-    #   nnbr <- pop_n_alters[samp_id[i]]
-    #   s <- if(nnbr > 0) sample(id, size = nnbr, prob = pop_degree_free) else as.numeric(c())
-    #   pop_degree_free[s] <<- pop_degree_free[s] - 1
-    #   s
-    # })
-    browser()
 
+    # hash ids
     if(rho == 0){
-      hash <- id
+      hash <- 1:length(pop_degree)
       nbrs_hash <- bs_nbrs
     }else{
       hash <- floor(runif(n, min = 0, max=hash_size))
       nbrs_hash <- lapply(bs_nbrs, function(x) hash[x])
     }
-    subj_hash <- hash[samp_id]
-    degree <- pop_degree[samp_id]
+    subj_hash <- hash[samp$subject]
+    degree <- pop_degree[samp$subject]
     rho1 <- if(rho_known) rho else NULL
-    unlist(population_estimate_hash(samp_id, recr_id, subj_hash, degree, nbrs_hash, rho1))
+    unlist(cross_network_pse(samp$subject, samp$recruiter, subj_hash, degree, nbrs_hash, rho1,
+                             method=method,small_sample_fraction=small_sample_fraction))
   }
 
   if(progress)
     pb <- txtProgressBar(min = 0, max = n_bootstrap, style = 3)
-  boots <- matrix(NA, n_bootstrap, 3)
+  boots <- matrix(NA, n_bootstrap, 2)
   for(i in 1:n_bootstrap){
     if(progress)
       setTxtProgressBar(pb, i)
     b1 <- bootstrap(round(point_estimate$estimate), point_estimate$rho, !is.null(rho))
-    b2 <- bootstrap(round(point_estimate$cross_seed_estimate), point_estimate$rho, !is.null(rho))
-    boots[i,] <- c(b1[1], b2[2], b2[3])
+    boots[i,] <- b1
   }
   if(progress)
     close(pb)
-
   crit <- -qnorm((1-conf_level)/2)
 
-  estimates <- c( log(point_estimate$estimate), log(point_estimate$cross_seed_estimate), point_estimate$rho)
-  sds <- c(sd(log(boots[,1])), sd(log(boots[,2])), sd(boots[,3]))
+  estimates <- c( log(point_estimate$estimate), point_estimate$rho)
+  sds <- c(sd(log(boots[,1])), sd(boots[,2]))
   lower <- estimates - crit * sds
   upper <- estimates + crit * sds
   result <- data.frame(
-    name = c("estimate", "cross_seed_estimate","1 / rho"),
+    name = c("estimate", "1 / rho"),
     value = estimates,
     ci_lower_bound = lower,
     ci_upper_bound = upper
   )
   result[1,2:4] <- exp(result[1,2:4])
-  result[2,2:4] <- exp(result[2,2:4])
-  result[3,2:4] <- 1 / result[3,2:4]
-  tmp <- result[3,3]
-  result[3,3] <- result[3,4]
-  result[3,4] <- tmp
+  result[2,2:4] <- 1 / result[2,2:4]
+  tmp <- result[2,4]
+  result[2,4] <- result[2,3]
+  result[2,3] <- tmp
   attr(result,"bootstrap_samples") <- boots
   attr(result, "conf_level") <- conf_level
   result
@@ -845,15 +885,20 @@ pns_sample <- function(pop_degree, n_seed){
 
   #draw sample from seeds
   while(sum(n_seed) > 0){
-    print(sum(n_seed))
+    #print(sum(n_seed))
     # select a seed tree to recruit from
     sd <- sample.int(length(n_seed), 1, prob=n_seed)
     found <- FALSE
     k <- 1
     while(!found){
       k <- k + 1
-      if(k > 500)
-        browser()
+      if(k > 5000){
+        #browser()
+        # No free edge ends. Abort
+        n_seed[sd] <- n_seed[sd] - 1
+        break
+      }
+
       # draw a random individual from the seed tree to be a recruiter
       recr <- sample.int(N, 1, prob=seed==sd)
 
@@ -884,6 +929,8 @@ pns_sample <- function(pop_degree, n_seed){
       }
     }
   }
+  r <- r[s != -1]
+  s <- s[s != -1]
   list(
     subject = s,
     recruiter = r,
