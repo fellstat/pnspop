@@ -552,12 +552,13 @@ cross_network_pse <- function(
   degree,
   nbrs,
   rho=NULL,
-  method = c("combined","alter","sample"),
+  method = c("combined","alter","sample"),#,"alter2"),
   small_sample_fraction=TRUE){
 
   method <- match.arg(method)
   add_alter <- method %in% c("combined","alter")
   add_sample <- method %in% c("combined","sample")
+  add_alter2 <- method %in% c("alter2")
 
   if(length(unique(subject)) != length(subject))
     stop("Subject ids must be unique")
@@ -569,11 +570,47 @@ cross_network_pse <- function(
     warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
     degree[is.na(degree)] <- median(degree, na.rm=TRUE)
   }
-  s2 <- 1:length(subject)
+
+  # Reorganize identifiers so they are 1:n, with seeds at the start
+  n <- length(subject)
+  s2 <- 1:n
   r2 <- match(recruiter, subject)
   r2[is.na(r2)] <- -1
   subject <- s2
   recruiter <- r2
+  seed <- get_seed(subject,recruiter)
+  seed_ids <- unique(seed)
+  non_seeds <- setdiff(1:n,seed_ids)
+  n_seed <- length(seed_ids)
+  #recruiter[recruiter == -1] <- -n_seed - 1
+  map <- rep(NA, n)
+  map[seed_ids] <- 1:n_seed
+  map[non_seeds] <- seq_along(non_seeds) + n_seed
+  subject <- subject[map[subject]]
+  recruiter[recruiter!=-1] <- map[recruiter[recruiter!=-1]]
+
+  #for(i in seq_along(seed_ids)){
+  #  subject[subject == seed_ids[i]] <- i - n_seed
+  #  recruiter[recruiter == seed_ids[i]] <- i - n_seed
+  #}
+  #subject <- subject + n_seed
+  #recruiter <- recruiter + n_seed
+  seed <- get_seed(subject,recruiter)
+  seed_ids <- unique(seed)
+
+  # mean degree of recruits/recruiters of each subject
+  # degree_nbrs <- rep(NA, n)
+  # for(i in 1:n){
+  #   dn <- c()
+  #   if(recruiter[i] != -1){
+  #     dn <- c(dn, degree[recruiter[i]])
+  #   }
+  #   dn <- c(dn, degree[recruiter == i])
+  #   if(length(dn) == 0)
+  #     dn <- degree[i]
+  #   degree_nbrs[i] <- mean(dn)
+  # }
+
   #nbrs2 <- list()
   #nbrs2[subject] <- nbrs
   #nbrs <- nbrs2
@@ -583,12 +620,13 @@ cross_network_pse <- function(
     rho <- n_matches / (ns*(ns-1))
   }
 
-  seed <- get_seed(subject,recruiter)
-  seed_ids <- unique(seed)
+  #seed <- get_seed(subject,recruiter)
+  #seed_ids <- unique(seed)
   out_sets <- list()
   match_sets <- list()
   match_degrees <- list()
   o <- rep(0, max(seed_ids))
+  #q <- rep(NA, n_seed)
   for(s in seed_ids){
     out_sets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
       excl <- subject_hash[recruiter == x[1]]
@@ -614,6 +652,7 @@ cross_network_pse <- function(
     if(length(match_degrees) < s || is.null(match_degrees[[s]]))
       match_degrees[[s]] <- numeric()
     o[s] <- length(unlist(out_sets[[s]]))
+    #q[s] <- sum(degree_nbrs[seed==s] * sapply(out_sets[[s]], length)) / o[s]
   }
   cross_net_matches <- rep(0, max(seed_ids))
   o_mc <- rep(0, max(seed_ids))
@@ -640,7 +679,7 @@ cross_network_pse <- function(
         degree,
         N = max(ns, N),
         number.ss.iterations = 5,
-        SS.infinity = 0.000001
+        SS.infinity = max(.000001, 10 * ns / .Machine$integer.max)
         )
 
       if (!is.null(oldseed))
@@ -653,6 +692,20 @@ cross_network_pse <- function(
 
     expected_matches <- 0
     observed_matches <- 0
+    # if(add_alter2){
+    #   ptrue <- sapply(degree,
+    #                   function(deg) ((rho * (d_population*(N-1) - ns + length(seed_ids))) /
+    #                                    (deg - 1) + 1)^(-1))
+    #   ptrue[degree == 1] <- 0
+    #   p_1 <- sum(deg_wts * degree^2 * ptrue) / sum(deg_wts * degree^2)
+    #   p_2 <- sum(deg_wts * degree * ptrue) / sum(deg_wts * degree)
+    #   phi_value <- p_2 / (1 - p_1 + p_2)
+    #   if(phi_value <= 0) return(N-1)
+    #   expected_matches <- sum(o*o_mc*q) / (N * d_population - (ns - length(seed_ids)))
+    #   observed_matches <- phi_value * sum(cross_net_matches)
+    #   if(is.na(sum(cross_net_matches))) browser()
+    #   if(sum(cross_net_matches) == 0) return(Inf)
+    # }
     if(add_alter){
       ptrue <- sapply(degree,
                       function(deg) ((rho * (d_population*(N-1) - ns + length(seed_ids))) /
