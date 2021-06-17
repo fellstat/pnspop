@@ -1,11 +1,25 @@
 
 test_that("main", {
   data(faux_pns)
-  #p1 <- population_estimate(rds$subject,rds$recruiter, rds$degree, nbrs2)
-  #testthat::expect_equal(round(unlist(p1)), c(1094,1149,1066), ignore_attr = TRUE)
-  p2 <- population_estimate_hash(rds$subject,rds$recruiter,
-        subj_hash, rds$degree, nbrs_hash,rho=rho)
-  testthat::expect_equal(round(unlist(p2)), c(901,887,0), ignore_attr = TRUE)
+
+  #hashes
+  pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+                 faux_pns$subject_hash, faux_pns$degree,
+                 faux_pns[paste0("friend_hash",1:11)], rho=.001)
+  testthat::expect_equal(round(unlist(pp)), c(1073, 0,    687,  350764), ignore_attr = TRUE)
+
+  pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+                       faux_pns$subject_hash, faux_pns$degree,
+                       faux_pns[paste0("friend_hash",1:11)])
+  testthat::expect_equal(floor(1/pp$rho), 1170, ignore_attr = TRUE)
+  testthat::expect_equal(floor(pp$estimate), 938, ignore_attr = TRUE)
+
+  pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+                       faux_pns$subject_hash, faux_pns$degree,
+                       faux_pns[paste0("friend_hash",1:11)], small_sample_fraction = FALSE)
+  print(pp)
+  rnorm(10)
+  testthat::expect_true(pp$estimate > 925 & pp$estimate < 935)
 })
 
 
@@ -28,7 +42,7 @@ test_that("bias", {
     nbrs <- lapply(1:n, function(i) c(el[el[,1]==i,2],el[el[,2]==i,1]))
     nbrs2 <- nbrs[rds$subject]
     nbrs_hash <- lapply(nbrs2,function(x) hash[x])
-    unlist(population_estimate_hash(rds$subject,rds$recruiter,
+    unlist(cross_tree_pse(rds$subject,rds$recruiter,
                                     subj_hash, d[rds$subject], nbrs_hash, rho))
   }
 
@@ -38,6 +52,6 @@ test_that("bias", {
   }
   r <- do.call(rbind, ll)
   mns <- colMeans(r)
-  expect_true(all(mns[1:2] < 5500) & all(mns[1:2] > 4500))
+  testthat::expect_true(mns[1] < 5500 & mns[1] > 4500)
 
 })

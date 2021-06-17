@@ -1,6 +1,7 @@
 
 #' @importFrom stats rexp uniroot median na.omit qnorm runif sd
 #' @importFrom utils setTxtProgressBar txtProgressBar
+#' @import RDS
 NULL
 
 #' Constructs a configuration graph
@@ -150,82 +151,6 @@ get_seed <- function(id, recruiter.id){
   seed
 }
 
-# #' Estimate population size given neighbor identifiers
-# #' @param subject The integer ids of each subject
-# #' @param recruiter The integer ids of the recruiter of each subject (-1 for seeds)
-# #' @param degree The degree of each subject
-# #' @param nbrs A list, each element indicating the ids of the neighbors of each subject,
-# #' or a random subset of those neighbors
-# #' @return
-# #' A list with elements:
-# #' 'no_degree_estimate': The naive n_1 capture re-capture estimate
-# #' 'estimate': The n_2 population size estimate
-# #' 'cross_seed_estimate' : The n_3 cross-seed estimate
-# #' @references
-# #' Khan, Bilal; Lee, Hsuan-Wei; Fellows, Ian; Dombrowski, Kirk One-step Estimation of Networked Population Size: Respondent-Driven Capture-Recapture with Anonymity eprint arXiv:1710.03953, 2017
-# #' @examples
-# #' set.seed(1)
-# #' n <- 1000 #pop size
-# #' d <- rpois(n,lambda = 3) + 1
-# #' g <- rep(1,n)
-# #' el <- make_configuration_graph(d)
-# #' seeds <- 7 # #of seeds
-# #' rds <- samp_rds(el, d, seeds,g,200,FALSE, pr = c(0,.1,.9))
-# #' nbrs <- lapply(1:n, function(i) c(el[el[,1]==i,2],el[el[,2]==i,1]))
-# #' nbrs2 <- nbrs[rds$subject]
-# #' population_estimate(rds$subject,rds$recruiter, d[rds$subject], nbrs2)
-# #' @export
-# population_estimate <- function(subject, recruiter, degree, nbrs){
-#   nbrs2 <- list()
-#   nbrs2[subject] <- nbrs
-#   nbrs <- nbrs2
-#   ns <- length(subject)
-#   outSet <- do.call(c, apply(cbind(subject,recruiter), 1, function(x){
-#     excl <- c(x[2], subject[recruiter == x[1]])
-#     nb <- nbrs[[x[1]]]
-#     for(e in excl){
-#       i <- which(nb %in% e)
-#       if(length(i) > 0)
-#         nb <- nb[-i[1]]
-#     }
-#     nb
-#   }))
-#   m <- length(outSet[outSet %in% subject])
-#   dSample <- mean(degree) - 1
-#   dPopulation <- ns / sum(1/degree)
-#
-#   result <- list(
-#     estimate=(dSample / dPopulation) * ns * length(outSet) / m ,
-#     no_degree_estimate=ns * length(outSet) / m
-#   )
-#   seed <- get_seed(subject,recruiter)
-#   seedIds <- unique(seed)
-#   crossSeedEstimateNum <- 0
-#   crossSeedEstimateDenom <- 0
-#   for(s in seedIds){
-#     outSet <- do.call(c, as.list(apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
-#       excl <- c(x[2], subject[recruiter == x[1]])
-#       nb <- nbrs[[x[1]]]
-#       for(e in excl){
-#         i <- which(nb %in% e)
-#         if(length(i) > 0)
-#           nb <- nb[-i[1]]
-#       }
-#       nb
-#     })))
-#     if(is.null(outSet))
-#       next
-#     m <- length(outSet[outSet %in% subject[seed != s]])
-#     dSample <- mean(degree[seed != s]) - 1
-#     dPopulation <- ns / sum(1/degree)
-#     crossSeedEstimateNum <- crossSeedEstimateNum + length(outSet) *
-#       length(subject[seed != s]) * dSample / dPopulation
-#     crossSeedEstimateDenom <- crossSeedEstimateDenom + m
-#   }
-#   result$cross_seed_estimate <- crossSeedEstimateNum / crossSeedEstimateDenom
-#   result
-# }
-
 
 #' Estimate population size given privatized (hashed) neighbor identifiers
 #' @param subject The integer ids of each subject
@@ -258,14 +183,14 @@ get_seed <- function(id, recruiter.id){
 #' nbrs <- lapply(1:n, function(i) c(el[el[,1]==i,2],el[el[,2]==i,1]))
 #' nbrs2 <- nbrs[rds$subject]
 #' nbrs_hash <- lapply(nbrs2,function(x) hash[x])
-#' population_estimate_hash(rds$subject,rds$recruiter,
+#' one_step_pse(rds$subject,rds$recruiter,
 #'      subj_hash, d[rds$subject], nbrs_hash, rho)
 #'
 #' #rho estimated from data
-#' population_estimate_hash(rds$subject,rds$recruiter,
+#' one_step_pse(rds$subject,rds$recruiter,
 #'      subj_hash, d[rds$subject], nbrs_hash)
 #' @export
-population_estimate_hash <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NULL){
+one_step_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NULL){
   if(length(unique(subject)) != length(subject))
     stop("Subject ids must be unique")
   if(anyNA(subject))
@@ -399,7 +324,7 @@ population_estimate_hash <- function(subject, recruiter, subject_hash, degree, n
   } else{
     optCross <- uniroot(function(N) NTildaCross(N) - N, interval=c(2, 7000000000))
   }
-  result <- list(
+  result <- data.frame(
     estimate=opt$root,
     cross_seed_estimate= optCross$root,
     rho=rho
@@ -408,125 +333,7 @@ population_estimate_hash <- function(subject, recruiter, subject_hash, degree, n
 }
 
 
-# cross_sample_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NULL, small_sample_fraction=TRUE){
-#   if(length(unique(subject)) != length(subject))
-#     stop("Subject ids must be unique")
-#   if(anyNA(subject))
-#     stop("No missing subject identifiers allowed")
-#   if(anyNA(recruiter))
-#     stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
-#   if(anyNA(degree)){
-#     warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
-#     degree[is.na(degree)] <- median(degree, na.rm=TRUE)
-#   }
-#   s2 <- 1:length(subject)
-#   r2 <- match(recruiter, subject)
-#   r2[is.na(r2)] <- -1
-#   subject <- s2
-#   recruiter <- r2
-#   #nbrs2 <- list()
-#   #nbrs2[subject] <- nbrs
-#   #nbrs <- nbrs2
-#   ns <- length(na.omit(subject))
-#   if(is.null(rho)){
-#     n_matches <- sum(sapply(subject_hash,function(h) sum(subject_hash==h,na.rm=TRUE) - 1))
-#     rho <- n_matches / (ns*(ns-1))
-#   }
-#
-#   seed <- get_seed(subject,recruiter)
-#   seed_ids <- unique(seed)
-#   out_sets <- list()
-#   match_sets <- list()
-#   a_n <- rep(NA, length(seed_ids))
-#   for(s in seed_ids){
-#     out_sets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
-#       excl <- subject_hash[recruiter == x[1]]
-#       if(x[2] != -1)
-#         excl <- c(excl, subject_hash[match(x[2], subject)])
-#       nb <- nbrs[[x[1]]]
-#       for(e in excl){
-#         i <- which(nb %in% e)
-#         if(length(i) > 0)
-#           nb <- nb[-i[1]]
-#       }
-#       nb
-#     })
-#     match_sets[[s]] <- lapply(out_sets[[s]], function(x) x[x %in% subject_hash[seed != s]])
-#     a_n[s] <- length(unlist(out_sets[[s]]))
-#   }
-#   #outset_degree <- apply(cbind(subject,recruiter), 1, function(x){
-#   #  nb <- nbrs[[x[1]]]
-#   #  if(x[2] != -1){
-#   #    excl <- subject_hash[match(x[2], subject)]
-#   #    i <- which(nb %in% excl)
-#   #    if(length(i) > 0)
-#   #      nb <- nb[-i[1]]
-#   #  }
-#   #  length(nb)
-#   #})
-#
-#   N_tilda <- function(N){
-#     if(ns/N < .1 || small_sample_fraction){
-#       deg_wts <- 1 / degree
-#     }else{
-#       if (exists(".Random.seed", .GlobalEnv))
-#         oldseed <- .GlobalEnv$.Random.seed
-#       else
-#         oldseed <- NULL
-#
-#       deg_wts <- RDS::gile.ss.weights(degree, N = max(ns, N), number.ss.iterations = 3)
-#
-#       if (!is.null(oldseed))
-#         .GlobalEnv$.Random.seed <- oldseed
-#       else
-#         rm(".Random.seed", envir = .GlobalEnv)
-#     }
-#     d_population <- sum(deg_wts * degree) / sum(deg_wts)
-#
-#     numerator <- 0
-#     denominator <- 0
-#     for(s in seed_ids){
-#       out_set <- out_sets[[s]]
-#       match_set <- match_sets[[s]]
-#
-#       if(is.null(out_set))
-#         next
-#       wts <-  lapply(match_set, function(x){
-#         wts1 <- list()
-#         for(a in x){
-#           mId <- which(subject_hash == a & seed != s)
-#           wts1[[length(wts1) + 1]] <- 1 / (d_population * rho * (N - 1) / (degree[mId] - 1) + 1)
-#         }
-#         wts1
-#       })
-#       wts <- unlist(wts)
-#       wts[is.nan(wts)] <- 1
-#       m <- sum(wts)
-#       n_within <- sum(seed == s & !is.na(subject_hash))
-#       d_sample <- mean(degree[seed == s]) - (n_within - 1) / n_within
-#       #d_sample <- sum(outset_degree[seed == s])
-#       #dPopulation <- ns / sum(1/degree)
-#       #nWithout <- sum(seed != s & !is.na(subject_hash))
-#       numerator <- numerator + sum(na.omit(a_n[-s])) * d_sample * n_within / #d_population
-#         (d_population - (ns - length(seed_ids)) / N)#( (sum(seed != s) - length(seed_ids) + 1) + (sum(seed == s) - 2)/2) / N)
-#       denominator <- denominator + m
-#     }
-#     numerator / denominator
-#   }
-#   if(is.na(N_tilda(ns))) browser()
-#   if(N_tilda(ns) < ns){
-#     opt <- list(root=ns)
-#   }else if(N_tilda(7000000000) > 7000000000){
-#     opt <- list(root=Inf)
-#   } else{
-#     opt <- uniroot(function(N) N_tilda(N) - N, interval=c(ns, 7000000000))
-#   }
-#   result <- list(
-#     estimate= opt$root,
-#     rho=rho
-#   )
-#   result
-# }
+
 
 
 #' Estimate population size given privatized (hashed) neighbor identifiers
@@ -540,25 +347,37 @@ population_estimate_hash <- function(subject, recruiter, subject_hash, degree, n
 #' @param method combined uses both the sample and the nominated alters for potential matches. "sample" uses only recruited individuals and "alter" uses only their nominated alters.
 #' @param small_sample_fraction If TRUE, simplifies estimation by assuming a small sample fraction.
 #' @return
-#' A vector with elements:
+#' A data.frame with elements:
 #' 'estimate': The population size estimate, adjusted for hashing
-#' 'rho': The value of rho
+#' 'rho': The hash collision probability
+#' 'num_matches': The number of identifier matches
+#' 'num_poss_matches': The number of identifier match opportunities
 #' @examples
-#' 2+2
-cross_network_pse <- function(
+#' data(faux_pns)
+#' #rho estimated from data
+#' cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+#'                faux_pns$subject_hash, faux_pns$degree,
+#'                faux_pns[paste0("friend_hash",1:11)])
+#'
+#'
+#' # fixed rho
+#' cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+#'                faux_pns$subject_hash, faux_pns$degree,
+#'                faux_pns[paste0("friend_hash",1:11)], rho=.001)
+#' @export
+cross_tree_pse <- function(
   subject,
   recruiter,
   subject_hash,
   degree,
   nbrs,
   rho=NULL,
-  method = c("combined","alter","sample"),#,"alter2"),
+  method = c("network","alter","sample"),
   small_sample_fraction=TRUE){
 
   method <- match.arg(method)
-  add_alter <- method %in% c("combined","alter")
-  add_sample <- method %in% c("combined","sample")
-  add_alter2 <- method %in% c("alter2")
+  add_alter <- method %in% c("network","alter")
+  add_sample <- method %in% c("network","sample")
 
   if(length(unique(subject)) != length(subject))
     stop("Subject ids must be unique")
@@ -572,61 +391,62 @@ cross_network_pse <- function(
   }
 
   # Reorganize identifiers so they are 1:n, with seeds at the start
-  n <- length(subject)
-  s2 <- 1:n
+  ns <- length(subject)
+  s2 <- 1:ns
   r2 <- match(recruiter, subject)
   r2[is.na(r2)] <- -1
   subject <- s2
   recruiter <- r2
   seed <- get_seed(subject,recruiter)
   seed_ids <- unique(seed)
-  non_seeds <- setdiff(1:n,seed_ids)
+  non_seeds <- setdiff(1:ns,seed_ids)
   n_seed <- length(seed_ids)
-  #recruiter[recruiter == -1] <- -n_seed - 1
-  map <- rep(NA, n)
+  map <- rep(NA, ns)
   map[seed_ids] <- 1:n_seed
   map[non_seeds] <- seq_along(non_seeds) + n_seed
   subject <- subject[map[subject]]
   recruiter[recruiter!=-1] <- map[recruiter[recruiter!=-1]]
 
-  #for(i in seq_along(seed_ids)){
-  #  subject[subject == seed_ids[i]] <- i - n_seed
-  #  recruiter[recruiter == seed_ids[i]] <- i - n_seed
-  #}
-  #subject <- subject + n_seed
-  #recruiter <- recruiter + n_seed
+  #convert to list if needed
+  if(is.data.frame(nbrs) || is.matrix(nbrs)){
+    df <- nbrs
+    nbrs <- list()
+    for(i in 1:nrow(df))
+      nbrs[[i]] <- unlist(df[i,])
+  }
+  nbrs <- lapply(nbrs, na.omit)
+
   seed <- get_seed(subject,recruiter)
   seed_ids <- unique(seed)
+  ns <- length(subject)
 
-  # mean degree of recruits/recruiters of each subject
-  # degree_nbrs <- rep(NA, n)
-  # for(i in 1:n){
-  #   dn <- c()
-  #   if(recruiter[i] != -1){
-  #     dn <- c(dn, degree[recruiter[i]])
-  #   }
-  #   dn <- c(dn, degree[recruiter == i])
-  #   if(length(dn) == 0)
-  #     dn <- degree[i]
-  #   degree_nbrs[i] <- mean(dn)
-  # }
+  # Handle missing hashes
+  if(anyNA(subject_hash)){
+    na_hash <- is.na(subject_hash)
+    seed <- seed[!na_hash]
+    subject <- subject[!na_hash]
+    recruiter <- recruiter[!na_hash]
+    subject_hash <- subject_hash[!na_hash]
+    nbrs <- nbrs[!na_hash]
+    ns <- length(subject)
+    s2 <- 1:ns
+    r2 <- match(recruiter, subject)
+    r2[is.na(r2)] <- -1
+    subject <- s2
+    recruiter <- r2
+  }
 
-  #nbrs2 <- list()
-  #nbrs2[subject] <- nbrs
-  #nbrs <- nbrs2
-  ns <- length(na.omit(subject))
+  # Calculate hash collision probability if not specified
   if(is.null(rho)){
     n_matches <- sum(sapply(subject_hash,function(h) sum(subject_hash==h,na.rm=TRUE) - 1))
     rho <- n_matches / (ns*(ns-1))
   }
 
-  #seed <- get_seed(subject,recruiter)
-  #seed_ids <- unique(seed)
+  # construct out edge ends, matches and degres of matches
   out_sets <- list()
   match_sets <- list()
   match_degrees <- list()
   o <- rep(0, max(seed_ids))
-  #q <- rep(NA, n_seed)
   for(s in seed_ids){
     out_sets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
       excl <- subject_hash[recruiter == x[1]]
@@ -665,9 +485,9 @@ cross_network_pse <- function(
     o_mc[s] <- sum(o[-s])
   }
 
+  # Estimating equation
   N_tilda <- function(N){
-    if(#ns/N < .1 ||
-       small_sample_fraction){
+    if(small_sample_fraction){
       deg_wts <- 1 / degree
     }else{
       if (exists(".Random.seed", .GlobalEnv))
@@ -680,11 +500,11 @@ cross_network_pse <- function(
         N = max(ns, N),
         number.ss.iterations = 5,
         SS.infinity = max(.000001, 10 * ns / .Machine$integer.max)
-        )
+      )
 
       if (!is.null(oldseed))
         .GlobalEnv$.Random.seed <- oldseed
-      else
+      else if(exists(".Random.seed", envir = .GlobalEnv))
         rm(".Random.seed", envir = .GlobalEnv)
     }
     d_population <- sum(deg_wts * degree) / sum(deg_wts)
@@ -692,20 +512,6 @@ cross_network_pse <- function(
 
     expected_matches <- 0
     observed_matches <- 0
-    # if(add_alter2){
-    #   ptrue <- sapply(degree,
-    #                   function(deg) ((rho * (d_population*(N-1) - ns + length(seed_ids))) /
-    #                                    (deg - 1) + 1)^(-1))
-    #   ptrue[degree == 1] <- 0
-    #   p_1 <- sum(deg_wts * degree^2 * ptrue) / sum(deg_wts * degree^2)
-    #   p_2 <- sum(deg_wts * degree * ptrue) / sum(deg_wts * degree)
-    #   phi_value <- p_2 / (1 - p_1 + p_2)
-    #   if(phi_value <= 0) return(N-1)
-    #   expected_matches <- sum(o*o_mc*q) / (N * d_population - (ns - length(seed_ids)))
-    #   observed_matches <- phi_value * sum(cross_net_matches)
-    #   if(is.na(sum(cross_net_matches))) browser()
-    #   if(sum(cross_net_matches) == 0) return(Inf)
-    # }
     if(add_alter){
       ptrue <- sapply(degree,
                       function(deg) ((rho * (d_population*(N-1) - ns + length(seed_ids))) /
@@ -717,7 +523,6 @@ cross_network_pse <- function(
       if(phi_value <= 0) return(N-1)
       expected_matches <- (d_tilda - 1) * sum(o*o_mc) / (N * d_population - (ns - length(seed_ids)))
       observed_matches <- phi_value * sum(cross_net_matches)
-      if(is.na(sum(cross_net_matches))) browser()
       if(sum(cross_net_matches) == 0) return(Inf)
     }
     if(add_sample){
@@ -738,11 +543,10 @@ cross_network_pse <- function(
         observed_matches <- observed_matches + m
       }
     }
-    #if(is.na(numerator / denominator)) browser()
     expected_matches - observed_matches
   }
-  if(is.na(N_tilda(ns)))
-    browser()
+
+  # Find estimating equation solution
   if(N_tilda(ns) < 0){
     opt <- list(root=ns)
   }else if(N_tilda(7000000000) > 0){
@@ -750,9 +554,28 @@ cross_network_pse <- function(
   } else{
     opt <- uniroot(function(N) N_tilda(N), interval=c(ns, 7000000000))
   }
-  result <- list(
+
+  # calculate summary statistics (number of matches out of the number of possible matches)
+  nmatch <- 0
+  nposs <- 0
+  if(add_alter){
+    nmatch <- sum(cross_net_matches)
+    nposs <- sum(o*o_mc)
+  }
+  if(add_sample){
+    nmatch <- nmatch + length(unlist(match_degrees))
+    for(s in seed_ids){
+      n_within <- sum(seed == s & !is.na(subject_hash))
+      nposs <- nposs + sum(na.omit(o[-s])) * n_within
+    }
+  }
+
+
+  result <- data.frame(
     estimate= opt$root,
-    rho=rho
+    rho=rho,
+    num_matches = nmatch,
+    num_poss_matches = nposs
   )
   result
 }
@@ -767,6 +590,8 @@ cross_network_pse <- function(
 #' or a random subset of those neighbors.
 #' @param rho The probability two random individuals have the same hash value.
 #' If NULL this is estimated from the number of hash collisions in subject_hash.
+#' @param method combined uses both the sample and the nominated alters for potential matches. "sample" uses only recruited individuals and "alter" uses only their nominated alters.
+#' @param small_sample_fraction If TRUE, simplifies estimation by assuming a small sample fraction.
 #' @param n_bootstrap The number of bootrap samples used to estimate the confidence intervals
 #' @param conf_level The coverage level for the confidence intervals
 #' @param progress Show a text progress bar
@@ -774,16 +599,17 @@ cross_network_pse <- function(
 #' A data frame with the population size values, CI lower and CI upper bounds.
 #' @examples
 #' data(faux_pns)
-#' #rho estimated from data
-#'
 #'
 #' #hashes
-#' population_estimate_hash(rds$subject,rds$recruiter,
-#'      subj_hash, rds$degree, nbrs_hash, rho)
-#' \dontrun{
-#' bootstrap_population_estimate(rds$subject,rds$recruiter,
-#'   subj_hash, rds$degree, nbrs_hash, rho, 50)
-#' }
+#' cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+#'                faux_pns$subject_hash, faux_pns$degree,
+#'                faux_pns[paste0("friend_hash",1:11)], rho=.001)
+#'
+#' # Set n_bootstrap much higher in practice
+#' bootstrap_pse(faux_pns$subject,faux_pns$recruiter,
+#'                faux_pns$subject_hash, faux_pns$degree,
+#'                faux_pns[paste0("friend_hash",1:11)], rho=.001, n_bootstrap=10)
+#' @export
 bootstrap_pse <- function(
   subject,
   recruiter,
@@ -791,7 +617,7 @@ bootstrap_pse <- function(
   degree,
   nbrs,
   rho=NULL,
-  method = c("combined","alter","sample"),
+  method = c("network","alter","sample"),
   small_sample_fraction = TRUE,
   n_bootstrap=500,
   conf_level = .95,
@@ -799,9 +625,18 @@ bootstrap_pse <- function(
 
   method <- match.arg(method)
 
+  #convert to list if needed
+  if(is.data.frame(nbrs) || is.matrix(nbrs)){
+    df <- nbrs
+    nbrs <- list()
+    for(i in 1:nrow(df))
+      nbrs[[i]] <- unlist(df[i,])
+  }
+  nbrs <- lapply(nbrs, na.omit)
+
   # Get point estimates of population saize and rho
-  point_estimate <- cross_network_pse(subject, recruiter, subject_hash, degree, nbrs, rho,
-                                      method=method,small_sample_fraction=small_sample_fraction)
+  point_estimate <- cross_tree_pse(subject, recruiter, subject_hash, degree, nbrs, rho,
+                                      method=method,small_sample_fraction=small_sample_fraction)[1:2]
 
   # Get the number of alter ids recorded excluding recruiter and recrutee
   s2 <- 1:length(subject)
@@ -862,14 +697,14 @@ bootstrap_pse <- function(
       hash <- 1:length(pop_degree)
       nbrs_hash <- bs_nbrs
     }else{
-      hash <- floor(runif(n, min = 0, max=hash_size))
+      hash <- floor(runif(n, min = 0, max=1 / rho))
       nbrs_hash <- lapply(bs_nbrs, function(x) hash[x])
     }
     subj_hash <- hash[samp$subject]
     degree <- pop_degree[samp$subject]
     rho1 <- if(rho_known) rho else NULL
-    unlist(cross_network_pse(samp$subject, samp$recruiter, subj_hash, degree, nbrs_hash, rho1,
-                             method=method,small_sample_fraction=small_sample_fraction))
+    unlist(cross_tree_pse(samp$subject, samp$recruiter, subj_hash, degree, nbrs_hash, rho1,
+                             method=method,small_sample_fraction=small_sample_fraction)[1:2])
   }
 
   if(progress)
@@ -1005,10 +840,10 @@ pns_sample <- function(pop_degree, n_seed){
 #' data(faux_pns)
 #' #rho estimated from data
 #'
-#' # no hashes
-#' population_estimate_hash(rds$subject,rds$recruiter, rds$subject, rds$degree, nbrs2, rho=0)
 #'
 #' #hashes
-#' population_estimate_hash(rds$subject,rds$recruiter,
-#'      subj_hash, rds$degree, nbrs_hash)
+#' cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+#'      faux_pns$subject_hash, faux_pns$degree,
+#'      faux_pns[paste0("friend_hash",1:11)],
+#'      rho=.001)
 NULL

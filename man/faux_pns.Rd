@@ -16,11 +16,11 @@ This is example pns data
 data(faux_pns)
 #rho estimated from data
 
-# no hashes
-population_estimate_hash(rds$subject,rds$recruiter, rds$subject, rds$degree, nbrs2, rho=0)
 
 #hashes
-population_estimate_hash(rds$subject,rds$recruiter,
-     subj_hash, rds$degree, nbrs_hash)
+cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+     faux_pns$subject_hash, faux_pns$degree,
+     faux_pns[paste0("friend_hash",1:11)],
+     rho=.001)
 }
 \keyword{data}

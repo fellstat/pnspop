@@ -137,35 +137,48 @@ boot_sims <- boot_sims %>%
       ),
       levels=c("Hash Size = 10k","Hash Size = 50k","Hash Size = 250k","Hash Size = ∞")
     ),
-    Estimator = case_when(
+    Estimator = factor(case_when(
       method == "sample" ~ "Sample",
       method == "alter" ~ "Alter",
       method == "combined" ~ "Network"
+    ),levels=c("Network","Alter","Sample")
     )
   )
 
 p <- ggplot(boot_sims) +
   geom_hline(yintercept=0,color="green") +
+  geom_violin(aes(
+    x=as.factor(mean_degree),
+    y = bs_log_vars/log_estimate_var - 1,#log(sqrt(bs_log_vars)) - log(sqrt(log_estimate_var)),
+    fill=Estimator,
+    color=Estimator),
+    alpha=.25,
+    position= position_dodge(.8)
+  ) +
   stat_summary(aes(
     x=as.factor(mean_degree),
     y = bs_log_vars/log_estimate_var - 1,#log(sqrt(bs_log_vars)) - log(sqrt(log_estimate_var)),
     color=Estimator),
                fun=mean,
-               fun.max = function(x) mean(x) + 2*sd(x),
-               fun.min = function(x) mean(x) - 2*sd(x),
-               position= position_dodge(.3)
+               fun.max = function(x) mean(x) + sd(x),
+               fun.min = function(x) mean(x) - sd(x),
+    size=.25,
+               position= position_dodge(.8)
   ) +
+  scale_color_manual(values=scales::hue_pal()(4)[1:3])+#function(x) {scales::hue_pal()(4)[1:x]}) +
   scale_y_continuous(labels = scales::percent) +
   facet_grid(Fraction ~ Hash) +
   xlab("Mean Degree") +
   ylab("Bootstrap Variance Estimate Relative Error") +
   theme_bw()
 p
-png("scripts/results/boot_config_plot.png",width = 500,height = 300)
+png("scripts/results/boot_config_plot.png",width = 600,height = 800)
 p
 dev.off()
 
-
+cairo_pdf("scripts/results/boot_config_plot.pdf",height = 4, width=7)
+p
+dev.off()
 
 
 

@@ -1,0 +1,95 @@
+---
+title: "Introduction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{introduction}
+  %\VignetteEngine{knitr::rmarkdown}
+---
+
+
+While numerous methodologies exist to estimate proportions and means from an respondent driven sample (RDS), estimating population size is more challenging. A privatized network sample (PNS) is similar to an RDS, but also collects identifiers for each individual's network connections protecting privacy through the use of a hash function.
+
+This package implements methods for estimating population size in PNS studies.
+
+# Data
+
+An RDS sampling process begins with the selection of a set of seed individuals from the population. Ideally these seeds would be randomly selected from the population, but this is not required. Information about these individuals is collected, including the number of connections they have to other members of the population (known as their degree or network size). They are then given a set of coupons to give to these connections in order to recruit them into the study. Their recruits are then enrolled in the study and are themselves asked to recruit other members of the population. This process proceeds until the sample size is reached.
+
+Privatized network sampling (PNS) proceeds similarly to an RDS sample, except that individuals are asked the identities of their network connections (i.e. alters), which are then protected through the use of a hashing function. The number of network neighbors collected may be capped at a certain number (e.g. 10) to avoid overburdening the respondent.
+
+The identifiers may be protected through the use of a hash function. A hashing function is a one way function that transforms an identifier into a (semi-)unique string of characters. There are many different hash functions that can be used, including cryptographic hash functions like SHA-256. Using SHA-256 on the identifier 'Ian Fellows (555) 212-5364' results in the value '276a8cf8f0ea69943c737ff47565233b5314169eb6a4996da43b3a1acb293230'.
+
+Below is a typical dataset that might come out of a PNS study.
+
+```{r}
+library(pnspop)
+data(faux_pns)
+head(faux_pns[-3],10)
+```
+
+The column `subject` is a unique identifier for the sampled individual. `recruiter` is the id of their recruiter, or -1 if they are a seed. `degree` is the subject's network size. `subject_hash` is the hashed identifier for the sampled subject. In this case all the hashes are numbers, but they may be character variables if that is what the hash function outputs. `friend_hash*` are the hashed identifiers for the reported connections. If a subject reports fewer connections than the number of columns, remaining columns are missing values (`NA`).
+
+# Analysis
+
+Every individual in the sample can be traced back from recruiter to recruiter to an originating seed, so each seed can be thought of as the base of a tree. The rate at which the identifiers of individuals in one tree are seen among the nominated "friends" of other trees is related to the population size. If there are few overlaps, the population is likely large. If there are many, it is likely small. the Cross-Sample estimator uses this overlap to estimate population size.
+
+Similarly, the rate at which the nominated "friends" from one tree are seen among the nominated "friends" of other trees is also related to the population size. The Cross-Alter estimator uses this for population size estimation.
+
+The Cross-Network estimator combines the evidence from both of these overlaps to construct its population size estimate.
+
+An important input to the methodology is the quality of the hashed identifier as measured by the probability (rho) that any two individuals in the population have the same hashed identifier. Sometimes rho may be able to be calculated theoretically, for example by assuming that phone digits are distributed randomly. If not, it may be calculated from the data.
+
+If we know that rho is equal to 0.001, we can perform inference using the `cross_tree_pse` function, with the `method` argument specifying the estimator type
+```{r}
+cross_tree_pse(
+  subject = faux_pns$subject,
+  recruiter = faux_pns$recruiter,
+  subject_hash = faux_pns$subject_hash, 
+  degree = faux_pns$degree,
+  nbrs = faux_pns[paste0("friend_hash",1:11)], 
+  method = "network",
+  rho = .001,
+  small_sample_fraction = FALSE)
+
+cross_tree_pse(
+  subject = faux_pns$subject,
+  recruiter = faux_pns$recruiter,
+  subject_hash = faux_pns$subject_hash, 
+  degree = faux_pns$degree,
+  nbrs = faux_pns[paste0("friend_hash",1:11)], 
+  method = "alter",
+  rho = .001,
+  small_sample_fraction = FALSE)
+
+cross_tree_pse(
+  subject = faux_pns$subject,
+  recruiter = faux_pns$recruiter,
+  subject_hash = faux_pns$subject_hash, 
+  degree = faux_pns$degree,
+  nbrs = faux_pns[paste0("friend_hash",1:11)], 
+  method = "sample",
+  rho = .001,
+  small_sample_fraction = FALSE)
+```
+
+If the size of the PNS is much smaller than the population size (<5%), then setting `small_sample_fraction=TRUE` will speed up computation.
+
+## Confidence Intervals
+
+`pnspop` also has facilities for generating parametric bootstrap confidence intervals. The parameters are similar to `cross_tree_pse` with the exception of the `n_bootstrap` parameter, which controls the number of bootstraps to perform. The log estimate is assumed to be normally distributed in order to provide more stable confidence limits using fewer bootstraps. Typically 500 or more bootstraps should be used for interval creation. Here we just use a handful as an illustration.
+
+```{r}
+bootstrap_pse(
+  subject = faux_pns$subject,
+  recruiter = faux_pns$recruiter,
+  subject_hash = faux_pns$subject_hash, 
+  degree = faux_pns$degree,
+  nbrs = faux_pns[paste0("friend_hash",1:11)], 
+  method = "network",
+  rho = .001,
+  small_sample_fraction = FALSE,
+  n_bootstrap = 10,
+  progress = FALSE)
+```
+
+
