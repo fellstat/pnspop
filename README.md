@@ -4,3 +4,6 @@ While numerous methodologies exist to estimate proportions and means from an res
 
 This package implements methods for estimating population size in PNS studies.
 
+# Usage
+
+**[A brief tour of the package](https://htmlpreview.github.io/?https://github.com/fellstat/pnspop/blob/main/inst/doc/introduction.html)**
