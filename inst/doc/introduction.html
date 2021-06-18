@@ -207,7 +207,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">rho =</span> .<span class="dv">001</span>,</span>
 <span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">small_sample_fraction =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
 <pre><code>##   estimate   rho num_matches num_poss_matches
-## 1 1064.379 0.001         687           350764</code></pre>
+## 1 1064.732 0.001         687           350764</code></pre>
 <div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cross_tree_pse</span>(</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">subject =</span> faux_pns<span class="sc">$</span>subject,</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">recruiter =</span> faux_pns<span class="sc">$</span>recruiter,</span>
@@ -218,7 +218,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">rho =</span> .<span class="dv">001</span>,</span>
 <span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">small_sample_fraction =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
 <pre><code>##   estimate   rho num_matches num_poss_matches
-## 1 1104.507 0.001         498           258902</code></pre>
+## 1 1105.315 0.001         498           258902</code></pre>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cross_tree_pse</span>(</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">subject =</span> faux_pns<span class="sc">$</span>subject,</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">recruiter =</span> faux_pns<span class="sc">$</span>recruiter,</span>
@@ -229,7 +229,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">rho =</span> .<span class="dv">001</span>,</span>
 <span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">small_sample_fraction =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
 <pre><code>##   estimate   rho num_matches num_poss_matches
-## 1 970.6497 0.001         189            91862</code></pre>
+## 1 971.4872 0.001         189            91862</code></pre>
 <p>If the size of the PNS is much smaller than the population size (&lt;5%), then setting <code>small_sample_fraction=TRUE</code> will speed up computation.</p>
 <div id="confidence-intervals" class="section level2">
 <h2>Confidence Intervals</h2>
@@ -246,7 +246,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_bootstrap =</span> <span class="dv">10</span>,</span>
 <span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">progress =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
 <pre><code>##       name    value ci_lower_bound ci_upper_bound
-## 1 estimate 1064.379       722.0105       1569.095
+## 1 estimate 1064.501       721.6782       1570.176
 ## 2  1 / rho 1000.000      1000.0000       1000.000</code></pre>
 </div>
 </div>
