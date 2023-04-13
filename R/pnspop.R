@@ -417,7 +417,6 @@ cross_tree_pse <- function(
   nbrs <- lapply(nbrs, na.omit)
 
   seed <- get_seed(subject,recruiter)
-  seed_ids <- unique(seed)
   ns <- length(subject)
 
   # Handle missing hashes
@@ -435,6 +434,8 @@ cross_tree_pse <- function(
     subject <- s2
     recruiter <- r2
   }
+
+  seed_ids <- unique(seed)
 
   # Calculate hash collision probability if not specified
   if(is.null(rho)){
@@ -721,7 +722,12 @@ bootstrap_pse <- function(
   crit <- -qnorm((1-conf_level)/2)
 
   estimates <- c( log(point_estimate$estimate), point_estimate$rho)
-  sds <- c(sd(log(boots[,1])), sd(boots[,2]))
+
+  # robust standard error assuming normal distribution
+  sd_norm <- function(x){
+    as.vector(diff(quantile(x, c(pnorm(-1),pnorm(1))))/2)
+  }
+  sds <- c(sd_norm(log(boots[,1])), sd_norm(boots[,2]))
   lower <- estimates - crit * sds
   upper <- estimates + crit * sds
   result <- data.frame(
@@ -800,8 +806,8 @@ pns_sample <- function(pop_degree, n_seed){
         s[j] <- fnbr[sample.int(length(fnbr),1)]
         r[j] <- recr
 
-        if(seed[s[j]] != 0)
-          browser()
+        #if(seed[s[j]] != 0)
+        #  browser()
 
         # draw alters for the new subject
         nnbr <- sample.int(N, d[s[j]], prob = d)
