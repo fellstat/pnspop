@@ -385,10 +385,6 @@ cross_tree_pse <- function(
     stop("No missing subject identifiers allowed")
   if(anyNA(recruiter))
     stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
-  if(anyNA(degree)){
-    warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
-    degree[is.na(degree)] <- median(degree, na.rm=TRUE)
-  }
 
   # Reorganize identifiers so they are 1:n, with seeds at the start
   ns <- length(subject)
@@ -426,6 +422,7 @@ cross_tree_pse <- function(
     subject <- subject[!na_hash]
     recruiter <- recruiter[!na_hash]
     subject_hash <- subject_hash[!na_hash]
+    degree <- degree[!na_hash]
     nbrs <- nbrs[!na_hash]
     ns <- length(subject)
     s2 <- 1:ns
@@ -433,6 +430,11 @@ cross_tree_pse <- function(
     r2[is.na(r2)] <- -1
     subject <- s2
     recruiter <- r2
+  }
+
+  if(anyNA(degree)){
+    warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
+    degree[is.na(degree)] <- median(degree, na.rm=TRUE)
   }
 
   seed_ids <- unique(seed)
@@ -626,6 +628,25 @@ bootstrap_pse <- function(
 
   method <- match.arg(method)
 
+  method <- match.arg(method)
+  add_alter <- method %in% c("network","alter")
+  add_sample <- method %in% c("network","sample")
+
+  if(length(unique(subject)) != length(subject))
+    stop("Subject ids must be unique")
+  if(anyNA(subject))
+    stop("No missing subject identifiers allowed")
+  if(anyNA(recruiter))
+    stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
+
+  # Reorganize identifiers so they are 1:n, with seeds at the start
+  ns <- length(subject)
+  s2 <- 1:ns
+  r2 <- match(recruiter, subject)
+  r2[is.na(r2)] <- -1
+  subject <- s2
+  recruiter <- r2
+
   #convert to list if needed
   if(is.data.frame(nbrs) || is.matrix(nbrs)){
     df <- nbrs
@@ -664,10 +685,15 @@ bootstrap_pse <- function(
 
   # calculate the rate at which alters are nominated
   nfn_by_seed <- sapply(sds, function(sd){
-    sum(n_free_nbrs[seed == sd])
+    sum(n_free_nbrs[seed == sd],na.rm=TRUE)
   })
   maxfn_by_seed <- sapply(sds, function(sd){
-    sum(degree[seed == sd]) - 2 * (sum(seed == sd) - 1)
+    nn <- sum(degree[seed == sd],na.rm=TRUE) - 2 * (sum(seed == sd) - 1)
+    nfn <- sum(n_free_nbrs[seed == sd],na.rm=TRUE)
+    if(nn < nfn){
+      nn <- nfn
+    }
+    nn
   })
   nom_rate_by_seed <- nfn_by_seed / maxfn_by_seed
 
@@ -675,7 +701,7 @@ bootstrap_pse <- function(
   bootstrap <- function(n, rho, rho_known){
 
     id <- 1:n
-    ind <- sample.int(length(degree),n,TRUE, prob = 1 / degree)
+    ind <- sample.int(length(degree),n,TRUE, prob = ifelse(is.na(degree),0, 1 / degree))
     pop_degree <- degree[ind]
     pop_n_alters <- n_free_nbrs[ind]
 
@@ -787,14 +813,20 @@ pns_sample <- function(pop_degree, n_seed){
     while(!found){
       k <- k + 1
       if(k > 5000){
-        #browser()
         # No free edge ends. Abort
+        warnings("Free edge end search failed in pns sampling.")
         n_seed[sd] <- n_seed[sd] - 1
         break
       }
 
       # draw a random individual from the seed tree to be a recruiter
       recr <- sample.int(N, 1, prob=seed==sd)
+
+      # add a free neighbor if recruitment from the tree has been exhausted
+      if(length(setdiff(unlist(alt[seed == sd]), s)) == 0){
+        nnbr <- sample.int(N, 1, prob = d)
+        alt[[recr]] <- c(alt[[recr]], nnbr)
+      }
 
       # the alters of the recruiter who have not been recruited
       fnbr <- setdiff(alt[[recr]], s)
@@ -834,6 +866,64 @@ pns_sample <- function(pop_degree, n_seed){
   )
 }
 
+#' Calculates relevant summary statistics for PNS
+#' @param subject_hash The hashed identifier for the subject
+#' @param nbrs A list, each element indicating the hashed identifier of the neighbors of each subject,
+#' or a random subset of those neighbors.
+#' @returns A list with elements:
+#'    'unique' - 'unique_nbrs' The total number of unique hash values in the nominations.
+#'    'unique' - 'sample_size' The sample size of the PNS
+#'    'unique' - 'total_unique_ident' The unique nominations plus the number of subjects whose hashes
+#'    do not appear in the nominations. This represents the total number of hashed identities directly
+#'    identified by sampling (either through recruitment or nomination) and is thus a hard lower bound
+#'    on population size.
+#'
+#'    'neighbors' - 'total_nbrs' The number of nominations
+#'    'neighbors' - 'unique_nbrs' The number of unique nominations
+#'
+#'    'naive_crc_estimate' - 'unique_nbrs' The number of unique nominations
+#'    'naive_crc_estimate' - 'sample_size' The sample size of the PNS
+#'    'naive_crc_estimate' - 'unique_nbrs_sample_overlap' The number of nominations that match a hash in the sample
+#'    'naive_crc_estimate' - 'N' Treating the sample and the nominations as two independent capture events,
+#'    this is the population size estimate. This should be treated as a descriptive statistic and not a true
+#'    estimate as the assumption does not hold.
+#' @examples
+#' data(faux_pns)
+#'
+#' overlap_statistics(faux_pns$subject, faux_pns[paste0("friend_hash",1:11)])
+#' @export
+overlap_statistics <- function(subject_hash, nbrs){
+  subject_hash <- na.omit(as.character(subject_hash))
+  nsamp <- length(subject_hash)
+  nbrs <- na.omit(as.character(as.matrix(nbrs)))
+  unbrs <- unique(nbrs)
+  un <- length(unbrs)
+  nbrs_in_sample <- sum(unbrs %in% subject_hash)
+  unbrs <- unbrs[!(unbrs %in% subject_hash)]
+  u <- length(unbrs)
+  n <- length(nbrs)
+
+
+  res <- list(
+    unique = data.frame(
+      unique_nbrs = un,
+      sample_size = nsamp,
+      total_unique_ident = u + nsamp
+    ),
+    neighbors = data.frame(
+      total_nbrs = n,
+      unique_nbrs = un
+    ),
+    naive_crc_estimate = data.frame(
+      unique_nbrs = un,
+      sample_size = nsamp,
+      unique_nbrs_sample_overlap = nbrs_in_sample,
+      N = un * nsamp / nbrs_in_sample
+    )
+  )
+  res
+}
+
 
 
 #' This is example pns data
@@ -852,4 +942,7 @@ pns_sample <- function(pop_degree, n_seed){
 #'      faux_pns$subject_hash, faux_pns$degree,
 #'      faux_pns[paste0("friend_hash",1:11)],
 #'      rho=.001)
+
+
+#' @importFrom stats pnorm quantile
 NULL
