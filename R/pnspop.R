@@ -436,6 +436,9 @@ cross_tree_pse <- function(
     warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
     degree[is.na(degree)] <- median(degree, na.rm=TRUE)
   }
+  if(any(degree <= 0)){
+    stop("Degrees must be > 0")
+  }
 
   seed_ids <- unique(seed)
 
