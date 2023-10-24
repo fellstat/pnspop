@@ -17,9 +17,17 @@ test_that("main", {
   pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
                        faux_pns$subject_hash, faux_pns$degree,
                        faux_pns[paste0("friend_hash",1:11)], small_sample_fraction = FALSE)
-  print(pp)
-  rnorm(10)
+
   testthat::expect_true(pp$estimate > 925 & pp$estimate < 935)
+
+  faux_pns2 <- faux_pns[200:1,]
+  pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
+                       faux_pns$subject_hash, faux_pns$degree,
+                       faux_pns[paste0("friend_hash",1:11)], small_sample_fraction = TRUE)
+  pp2 <- cross_tree_pse(faux_pns2$subject,faux_pns2$recruiter,
+                       faux_pns2$subject_hash, faux_pns2$degree,
+                       faux_pns2[paste0("friend_hash",1:11)], small_sample_fraction = TRUE)
+  testthat::expect_true(abs(pp$estimate - pp2$estimate ) < .000001)
 })
 
 

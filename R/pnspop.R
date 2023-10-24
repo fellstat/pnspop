@@ -386,6 +386,23 @@ cross_tree_pse <- function(
   if(anyNA(recruiter))
     stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
 
+  #convert to list if needed
+  if(is.data.frame(nbrs) || is.matrix(nbrs)){
+    df <- nbrs
+    nbrs <- list()
+    for(i in 1:nrow(df))
+      nbrs[[i]] <- unlist(df[i,])
+  }
+  nbrs <- lapply(nbrs, na.omit)
+
+  # Put seeds first
+  seed_order <- order(recruiter %in% subject)
+  subject <- subject[seed_order]
+  recruiter <- recruiter[seed_order]
+  subject_hash <- subject_hash[seed_order]
+  degree <- degree[seed_order]
+  nbrs <- nbrs[seed_order]
+
   # Reorganize identifiers so they are 1:n, with seeds at the start
   ns <- length(subject)
   s2 <- 1:ns
@@ -397,20 +414,14 @@ cross_tree_pse <- function(
   seed_ids <- unique(seed)
   non_seeds <- setdiff(1:ns,seed_ids)
   n_seed <- length(seed_ids)
-  map <- rep(NA, ns)
-  map[seed_ids] <- 1:n_seed
-  map[non_seeds] <- seq_along(non_seeds) + n_seed
-  subject <- subject[map[subject]]
-  recruiter[recruiter!=-1] <- map[recruiter[recruiter!=-1]]
 
-  #convert to list if needed
-  if(is.data.frame(nbrs) || is.matrix(nbrs)){
-    df <- nbrs
-    nbrs <- list()
-    for(i in 1:nrow(df))
-      nbrs[[i]] <- unlist(df[i,])
-  }
-  nbrs <- lapply(nbrs, na.omit)
+  ##
+  #
+  # subject ids are now reorganized so that they are 1:ns with the seeds having ids 1:n_seed.
+  # variables are sorted by subject id.
+  #
+  ##
+
 
   seed <- get_seed(subject,recruiter)
   ns <- length(subject)
