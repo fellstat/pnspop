@@ -674,7 +674,20 @@ bootstrap_pse <- function(
   # Get point estimates of population saize and rho
   point_estimate <- cross_tree_pse(subject, recruiter, subject_hash, degree, nbrs, rho,
                                       method=method,small_sample_fraction=small_sample_fraction)[1:2]
-
+  if(is.infinite(point_estimate$estimate)){
+    warning("Infinite point estimate. Bootstrap not performed.")
+    null_result <- structure(
+      list(
+        name = c("estimate", "1 / rho"),
+        value = c(point_estimate$estimate, point_estimate$rho),
+        ci_lower_bound = c(NA, NA),
+        ci_upper_bound = c(NA, NA)),
+      row.names = c(NA, -2L),
+      class = "data.frame",
+      bootstrap_samples = matrix(numeric(),0,2),
+      conf_level = 0.95)
+    return(null_result)
+  }
   # Get the number of alter ids recorded excluding recruiter and recrutee
   s2 <- 1:length(subject)
   r2 <- match(recruiter, subject)
