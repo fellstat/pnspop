@@ -411,7 +411,7 @@ cross_tree_pse <- function(
   subject <- s2
   recruiter <- r2
   seed <- get_seed(subject,recruiter)
-  seed_ids <- unique(seed)
+  seed_ids <- sort(unique(seed))
   non_seeds <- setdiff(1:ns,seed_ids)
   n_seed <- length(seed_ids)
 
@@ -451,7 +451,7 @@ cross_tree_pse <- function(
     stop("Degrees must be > 0")
   }
 
-  seed_ids <- unique(seed)
+  seed_ids <- sort(unique(seed))
 
   # Calculate hash collision probability if not specified
   if(is.null(rho)){
@@ -486,11 +486,13 @@ cross_tree_pse <- function(
       }
       deg
     }))
+
     if(length(match_degrees) < s || is.null(match_degrees[[s]]))
       match_degrees[[s]] <- numeric()
     o[s] <- length(unlist(out_sets[[s]]))
     #q[s] <- sum(degree_nbrs[seed==s] * sapply(out_sets[[s]], length)) / o[s]
   }
+
   cross_net_matches <- rep(0, max(seed_ids))
   o_mc <- rep(0, max(seed_ids))
   for(s in seed_ids){
@@ -526,7 +528,6 @@ cross_tree_pse <- function(
     }
     d_population <- sum(deg_wts * degree) / sum(deg_wts)
     d_tilda <- sum(deg_wts * degree * degree) / sum(deg_wts * degree)
-
     expected_matches <- 0
     observed_matches <- 0
     if(add_alter){
