@@ -641,6 +641,16 @@ bootstrap_pse <- function(
   conf_level = .95,
   progress = TRUE){
 
+  if(is.logical(progress) && progress){
+    pb <- txtProgressBar(min = 0, max = n_bootstrap, style = 3)
+    progress_function <- function(i){
+      setTxtProgressBar(pb, i)
+    }
+    on.exit(close(pb))
+  }else if(!is.logical(progress)){
+    progress_function <- progress
+    progress <- TRUE
+  }
   method <- match.arg(method)
 
   method <- match.arg(method)
@@ -762,17 +772,13 @@ bootstrap_pse <- function(
                              method=method,small_sample_fraction=small_sample_fraction)[1:2])
   }
 
-  if(progress)
-    pb <- txtProgressBar(min = 0, max = n_bootstrap, style = 3)
   boots <- matrix(NA, n_bootstrap, 2)
   for(i in 1:n_bootstrap){
     if(progress)
-      setTxtProgressBar(pb, i)
+      progress_function(i)
     b1 <- bootstrap(round(point_estimate$estimate), point_estimate$rho, !is.null(rho))
     boots[i,] <- b1
   }
-  if(progress)
-    close(pb)
   crit <- -qnorm((1-conf_level)/2)
 
   estimates <- c( log(point_estimate$estimate), point_estimate$rho)
