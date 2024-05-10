@@ -16,7 +16,13 @@
 var phone_digits = 7;
 
 // Whether of not the first initial of the first name is used
-var use_first_initial = true;
+var use_first_initial = false;
+
+// If true, the first letter of the first name and first letter of the last name are used
+var use_first_and_last_name_initial = false;
+
+// If true, the identifiers are entered twice and checked to be identical
+var double_data_entry = false;
 
 // Change salt to some random sequence of numbers and letters at least
 // 8 characters long. Do NOT use different salt values for different subjects.
@@ -247,6 +253,16 @@ async function sha256(message) {
     return hashHex;
 }
 
+function copyKey(){
+  var form = document.forms["theForm"];
+  var value = form["key"].value;
+  if(value == ""){
+    alert("No key")
+    return;
+  }
+  navigator.clipboard.writeText(value);
+}
+
 function runScript(){
     var form = document.forms["theForm"];
 
@@ -258,13 +274,18 @@ function runScript(){
           form["key"].value = ""
           return;
       }
-      if(fn.length != 1){
+      if(fn.length != 1 && !use_first_and_last_name_initial){
           alert("First initial should be one letter");
           form["key"].value = ""
           return;
       }
+      if(fn.length != 2 && use_first_and_last_name_initial){
+          alert("Initials should be two letters");
+          form["key"].value = ""
+          return;
+      }
       if(!fn.match(/^[A-Za-z]+$/)){
-          alert("Initial should be a letters");
+          alert("Initial should be letters");
           form["key"].value = ""
           return;
       }
@@ -283,6 +304,18 @@ function runScript(){
         alert("Phone number contains non-number characters.");
         form["key"].value = ""
         return;
+    }
+    if(double_data_entry){
+        var fndouble = form["fndouble"].value.toLowerCase().trim();
+        var lndouble = form["lndouble"].value.toLowerCase().trim();
+        if(fndouble != fn){
+          alert("Double Data Entry: Initials do not match")
+          form["key"].value = ""
+        }
+        if(lndouble != ln){
+          alert("Double Data Entry: phone numbers do not match")
+          form["key"].value = ""
+        }
     }
     var code = fn + " : " + ln + salt;
     //console.log(code);
@@ -304,9 +337,9 @@ function runScript(){
     <div class="box" id="password">
       <h2>Identifier</h2>
       <div class="section" id="initialsec">
-        <label for="fn">Initial:</label>
+        <label for="fn" id="init">Initial:</label>
         <input type="text" class="wide" name="fn" id="fn" autocomplete="off" tabindex="1", onkeypress="handleEnter(event)"/>
-        <p class="explanation">
+        <p class="explanation" id="initdesc">
           First letter of the first name.
         </p>
       </div>
@@ -318,6 +351,27 @@ function runScript(){
         </p>
       </div>
       <br>
+      <br>
+      <div class="section" id="doublesec">
+        <h2>Double Entry</h2>
+        <div class="section" id="initialsecdouble">
+          <label for="fndouble" id="initdouble">Reenter Initial:</label>
+          <input type="text" class="wide" name="fndouble" id="fndouble" autocomplete="off" tabindex="3", onkeypress="handleEnter(event)"/>
+          <p class="explanation" id="initdescdouble">
+            First letter of the first name.
+          </p>
+        </div>
+        <div class="section">
+          <label for="lndouble" id="digitlabeldouble">Reenter Phone Number (Last 7 Digits):</label>
+          <input type="text" class="wide" name="lndouble" id="lndouble" autocomplete="off" tabindex="4", onkeypress="handleEnter(event)"/>
+          <p class="explanation" id="digitdescdouble">
+            Phone Number (Last 7 Digits)
+          </p>
+        </div>
+        <br>
+        <hr>
+        <br>
+      </div>
       <input type="button" value="Submit", onclick="runScript()">
     </div>
     <div class="box" id="pkey">
@@ -333,6 +387,7 @@ function runScript(){
         <textarea id="key" name="key" class="hex" rows="1" autocomplete="off"></textarea>
         <p class="explanation">
         </p>
+        <button onclick="copyKey()">Copy key</button>
       </div>
 
     </div>
@@ -342,8 +397,21 @@ function runScript(){
 <script>
   document.getElementById("digitlabel").innerHTML = "Phone Number (Last " + phone_digits + " Digits):";
   document.getElementById("digitdesc").innerHTML = "Phone Number (Last " + phone_digits + " Digits):";
+  document.getElementById("digitlabeldouble").innerHTML = "Reenter Phone Number (Last " + phone_digits + " Digits):";
+  document.getElementById("digitdescdouble").innerHTML = "Phone Number (Last " + phone_digits + " Digits):";
   if(!use_first_initial){
     document.getElementById("initialsec").style.display = "none";
+    document.getElementById("initialsecdouble").style.display = "none";
+  }else{
+    if(use_first_and_last_name_initial){
+      document.getElementById("init").innerHTML = "Initials:";
+      document.getElementById("initdesc").innerHTML = "First letter of the first name and first letter of last name.";
+      document.getElementById("initdouble").innerHTML = "Reneter Initials:";
+      document.getElementById("initdescdouble").innerHTML = "First letter of the first name and first letter of last name.";
+    }
+  }
+  if(!double_data_entry){
+    document.getElementById("doublesec").style.display = "none";
   }
 </script>
 
