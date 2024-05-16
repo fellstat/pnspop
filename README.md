@@ -7,3 +7,5 @@ This package implements methods for estimating population size in PNS studies.
 # Usage
 
 **[A brief tour of the package](https://htmlpreview.github.io/?https://github.com/fellstat/pnspop/blob/main/inst/doc/introduction.html)**
+
+**[Study implementation and user interface documentation](https://fellstat.github.io/pnspop/)**
