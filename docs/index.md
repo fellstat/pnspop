@@ -50,7 +50,7 @@ aa
 
 bb
 
-<img src="./images/sie.png" width="50"/>
+<img src="./images/sie.png" width="50%"/>
 
 
 
