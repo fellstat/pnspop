@@ -37,11 +37,20 @@ It is up to the study to determine how to integrate hashing into the data collec
 
 A simple html web application is provided for hashing partial phone numbers and (optionally) initials. It can be accessed and downloaded from [https://github.com/fellstat/pnspop/blob/main/inst/shinyui/hasher.html](https://github.com/fellstat/pnspop/blob/main/inst/shinyui/hasher.html).
 
+
 <img src="./images/html_vars.png" width="500"/>
 
 Edit the variables in the header for your particular study needs and then the file can either be hosted on a web server or loaded locally on the system used for data collection. Note that all computations are done on the client side, so if the file is hosted on a webserver, no information (including identifiers) is transmitted to the server.
 
-<img src="./images/sie.png" width="500"/>
+![](./images/sie.png | width=100)
+
+aa
+
+![](./images/sie.png | 200X200)
+
+bb
+
+<img src="./images/sie.png" width="50"/>
 
 
 
