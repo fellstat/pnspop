@@ -42,15 +42,7 @@ A simple html web application is provided for hashing partial phone numbers and 
 
 Edit the variables in the header for your particular study needs and then the file can either be hosted on a web server or loaded locally on the system used for data collection. Note that all computations are done on the client side, so if the file is hosted on a webserver, no information (including identifiers) is transmitted to the server.
 
-![](./images/sie.png | width=100)
-
-aa
-
-![](./images/sie.png | 200X200)
-
-bb
-
-<img src="./images/sie.png" style="width:50px !important;height:45px !important;" width="50%"/>
+<img src="./images/sie.png" style="width:400px !important;" />
 
 
 
