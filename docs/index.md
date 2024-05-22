@@ -33,7 +33,7 @@ The identifiers may be protected through the use of a hash function. A hashing f
 
 It is up to the study to determine how to integrate hashing into the data collection process, however, we have developed tools to make this as easy and seamless as possible.
 
-## Via Webpage
+### Via Webpage
 
 A simple html web application is provided for hashing partial phone numbers and (optionally) initials. It can be accessed and downloaded from [https://github.com/fellstat/pnspop/blob/main/inst/shinyui/hasher.html](https://github.com/fellstat/pnspop/blob/main/inst/shinyui/hasher.html).
 
@@ -43,6 +43,26 @@ A simple html web application is provided for hashing partial phone numbers and 
 Edit the variables in the header for your particular study needs and then the file can either be hosted on a web server or loaded locally on the system used for data collection. Note that all computations are done on the client side, so if the file is hosted on a webserver, no information (including identifiers) is transmitted to the server.
 
 <img src="./images/sie.png" style="width:800px !important;" />
+
+### Via Webform
+
+### Via Android Application
+
+Hashing is built into most programming environments, including Java, which underpins Android tablet survey environments. The exact implementation will depend on the particular survey set-up, however, here is an example class showing how to [incorporate first/last name hashing on a native Android phone/tablet application](https://gist.github.com/ifellows/0fab1a121d5212135f79242e2cb28702).
+
+
+# Survey Module
+
+The R package includes an [example survey instrument](https://github.com/fellstat/pnspop/blob/main/inst/shinyui/pns_survey_module.docx) that uses 6 digits of a phone number as the underlying identifier. It can be downloaded by clicking the "..." button and selecting "Download."
+
+Note that this form limits the number of elicited contacts to 5. Ideally the hashed IDs of all contacts would be collected; however, this may introduce an undue burden on those with many contacts. The number of contacts elicited may be increased or decreased depending on the level of acceptable subject burden.
+
+For those with more that 5 contacts, subjects are asked to select from among them at random. This simple survey module simply asks them to do so. A more complicated module might introduce some mechanism to help randomly select them.
+
+# Analysis
+
+
+
 
 
 
