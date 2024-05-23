@@ -21,11 +21,13 @@ In some populations, people commonly have multiple phone numbers. Having multipl
 
 Using the full phone number is best from an analytical standpoint as it is fully unique; however, using fewer can be preferable for two reasons. First, it reduces data entry time. Second, it adds some "fuzzyness" to the identifier which can be an added layer of protection for a stigmatized or criminalized population. If an authority obtained the last 5 digits of a phone number known to belong to an injection drug user, they would not be able to easily use that information to find them.
 
-Name initials are another identifier that can be used. Either the first letter of the person's first name, or both the first letters of the first and last name. Care should be taken in the population to assess that individuals know each other by first and last name, in which case both initials can be used. If people only know eachother by first name, then only the first initial can be used. If members of the population generally know each other by nickname, then initials cannot be used.
+Name initials are another identifier that can be used. Either the first letter of the person's first name, or both the first letters of the first and last name. Care should be taken in the population to assess that individuals know each other by first and last name, in which case both initials can be used. If people only know each other by first name, then only the first initial can be used. If members of the population generally know each other by nickname, then initials cannot be used.
 
 Initials themselves do not provide enough uniqueness to be used as an identifier as there are only 24*24=576 unique possible first and last name initials. For this reason it is recommended to use initials along with another identifier such as phone number digits.
 
 It is recommended that the number of possible unique values for the identifier significantly exceeds the population size (>10X is recommended. >100X is ideal). For example, a 6 digit number results in 10^6 = 1,000,000 unique possibilities. First initial plus 4 digits of a phone number results in 240,000.
+
+The study formative assessment should evaluate the underlying identifier to ensure uniqueness and that the information is known by contacts.
 
 # Privatizing Identifiers Using Hash Functions
 
@@ -50,7 +52,6 @@ Edit the variables in the header for your particular study needs and then the fi
 
 Hashing is built into most programming environments, including Java, which underpins Android tablet survey environments. The exact implementation will depend on the particular survey set-up, however, here is an example class showing how to [incorporate first/last name hashing on a native Android phone/tablet application](https://gist.github.com/ifellows/0fab1a121d5212135f79242e2cb28702).
 
-
 # Survey Module
 
 The R package includes an [example survey instrument](https://github.com/fellstat/pnspop/blob/main/inst/shinyui/pns_survey_module.docx) that uses 6 digits of a phone number as the underlying identifier. It can be downloaded by clicking the "..." button and selecting "Download."
@@ -61,9 +62,41 @@ For those with more that 5 contacts, subjects are asked to select from among the
 
 # Analysis
 
+Once the data has been collected it is time to perform the data cleaning and analysis. For data cleaning, first perform all RDS related data checks such as:
 
+1. Plot the recruitment graph and ensure that the number of seeds matches what is expected.
+2. Look for repeated hash IDs in both the subject hashes and in the contacts. Some repeats are to be expected, but if a hash ID repeats many times, consider investigating if it is a data collection error.
 
+The data can be analyzed either using the Shiny web application or using the R package. For details on using the R package, see the [package vignette](https://htmlpreview.github.io/?https://github.com/fellstat/pnspop/blob/main/inst/doc/introduction.html).
 
+### Shiny Web Application
 
+The Shiny web application may be run locally or launched from [epiapps.com](http://www.epiapps.com). Local launching is done using the R package (`pnspop`). First install R from [Cran](https://cran.r-project.org/) and then install the `pnspop` package using the following code 
+
+```
+install.packages("devtools")
+devtools::install_github("fellstat/pnspop")
+```
+
+The application can then be launched.
+
+```
+library(pnspop)
+shiny_pnspop()
+```
+
+# Loading data
+
+Data should be in csv format, with missing values coded as `NA`. The data must have the following information in it:
+
+1. Subject ID: A unique identifier for each subject.
+2. Either the ID of the subject’s recruiter or RDS coupon information (i.e. their coupon and the coupons they were given)
+3. Network Size: The RDS network size variable (aka degree), which is the of people in the population the subject knows and could potentially have passed a coupon to.
+4. Subject’s Hashed Identifier: The privatized identifier for the subject.
+5. Hashed Identifiers For Contacts: The privatized identifiers for each contact identified by the subject.
+
+Select the data file and upload it.
+
+<img src="./images/upload.png" style="width:800px !important;" />
 
 
