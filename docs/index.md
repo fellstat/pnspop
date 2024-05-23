@@ -69,6 +69,38 @@ Once the data has been collected it is time to perform the data cleaning and ana
 
 The data can be analyzed either using the Shiny web application or using the R package. For details on using the R package, see the [package vignette](https://htmlpreview.github.io/?https://github.com/fellstat/pnspop/blob/main/inst/doc/introduction.html).
 
+### Calculating Rho
+
+This is the probability that two random people in the population share the same 
+hashed identifier is called Rho. Rho determines how many flase ID matches we should 
+expect just by chance.
+
+Rho can be estimated from the data by seeing how many individuals in the sample 
+have the same hashed ID. However, care should be taken when doing this as even a
+single duplicate enrollment (i.e. the same person enrolling twice) will cause a
+large error in the estimation.
+
+Rho can also be calculated based on how the hash was constructed. For example, if
+the last 5 digits of the phone number is used as the underlying identifier passed 
+to the hash function, the probability that the first digits are the the same between 
+two random people is 1/10. The same is true for the remaining 4 digits, so the 
+probability that they share all five is:
+
+```
+(1/10) * (1/10) * (1/10) * (1/10) * (1/10) = 10^(-5) = .00001
+```
+
+Similarly if letters are used, the probability that individuals share a letter
+can be (roughly) approximated by one over the number of letters (1/26). Thus,
+an identifier based on three digits of a phone number and one initial would have an
+approximate rho of:
+
+```
+(1/26) * (1/10) * (1/10) * (1/10) = .00003846
+```
+
+
+
 ### Shiny Web Application
 
 The Shiny web application may be run locally or launched from [epiapps.com](http://www.epiapps.com). Local launching is done using the R package (`pnspop`). First install R from [Cran](https://cran.r-project.org/) and then install the `pnspop` package using the following code 
