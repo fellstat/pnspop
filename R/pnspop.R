@@ -959,6 +959,34 @@ overlap_statistics <- function(subject_hash, nbrs){
   res
 }
 
+check_packages <- function(pkgs){
+  installed_pkgs <- utils::installed.packages() |> rownames()
+  miss <- pkgs[!(pkgs %in% installed_pkgs)]
+  if(length(miss) == 0)
+    return(FALSE)
+  if(interactive()){
+    cat("The following required pacakges are not installed: ", paste(miss, collapse = ", "))
+    install <- readline("Install now (y/n/c)?")
+    if(install != "y")
+      stop("missing packages")
+  }
+  utils::install.packages(miss)
+  return(TRUE)
+}
+
+#' Launches the Shiny PNS Application
+#' @param ... Additional parameters to be passed to shiny::runApp
+#' @export
+shiny_pnspop <- function(...){
+  app_dir <- system.file("shinyui", package = "pnspop")
+  if (app_dir == "") {
+    stop("Could not find example directory. Try re-installing `shinyrecap`.", call. = FALSE)
+  }
+  check_packages(
+    c("shinyWidgets", "shinyhelper", "promises", "future", "ipc", "ggplot2")
+  )
+  shiny::runApp(app_dir, display.mode = "normal", ...)
+}
 
 
 #' This is example pns data

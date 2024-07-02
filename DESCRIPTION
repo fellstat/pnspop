@@ -12,10 +12,16 @@ RoxygenNote: 7.2.3
 Suggests: 
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown,
+    shinyWidgets,
+    shinyhelper,
+    promises,
+    future,
+    ipc,
+    ggplot2
 Config/testthat/edition: 3
 Imports:
-   RDS
+   RDS, shiny
 Depends: 
     R (>= 3.5)
 VignetteBuilder: knitr
