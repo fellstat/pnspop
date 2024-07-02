@@ -664,6 +664,10 @@ bootstrap_pse <- function(
   if(anyNA(recruiter))
     stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
 
+  # Get point estimates of population size and rho
+  point_estimate <- cross_tree_pse(subject, recruiter, subject_hash, degree, nbrs, rho,
+                                   method=method, small_sample_fraction=small_sample_fraction)[1:2]
+
   # Reorganize identifiers so they are 1:n, with seeds at the start
   ns <- length(subject)
   s2 <- 1:ns
@@ -681,9 +685,6 @@ bootstrap_pse <- function(
   }
   nbrs <- lapply(nbrs, na.omit)
 
-  # Get point estimates of population saize and rho
-  point_estimate <- cross_tree_pse(subject, recruiter, subject_hash, degree, nbrs, rho,
-                                      method=method,small_sample_fraction=small_sample_fraction)[1:2]
   if(is.infinite(point_estimate$estimate)){
     warning("Infinite point estimate. Bootstrap not performed.")
     null_result <- structure(

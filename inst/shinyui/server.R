@@ -125,14 +125,42 @@ shinyServer(function(input, output, session) {
     print(qplot(degree, bins = 30))
   })
 
+
+  rho_value <- reactiveVal(0)
+  rho_from_data <- reactiveVal(FALSE)
   observeEvent(input$calc_rho, {
     subject_hash <- na.omit(get_categorical(input$subject_hash))
     ns <- length(subject_hash)
     n_matches <- sum(sapply(subject_hash,function(h) sum(subject_hash==h,na.rm=TRUE) - 1))
     rho <- n_matches / (ns*(ns-1))
+    rho_from_data(TRUE)
+    rho_value(rho)
     updateNumericInput(session, "rho", value=rho)
   })
+  observeEvent(input$rho, {
+    if(rho_value() == input$rho || abs(rho_value()/input$rho - 1) < .000000001){
+      return()
+    }
+    rho_from_data(FALSE)
+  })
 
+  output$descriptives_table <- renderTable({
+    subject_hash <- get_categorical(input$subject_hash)
+    nbrs <- get_nbrs()
+    overlap <- overlap_statistics(subject_hash, nbrs)
+    res <- data.frame(
+      `Total Contacts` = overlap$neighbors$total_nbrs,
+      `Unique Contacts` = overlap$unique$unique_nbrs,
+      `PNS Sample Size` = overlap$unique$sample_size,
+      `Unique Contacts in Sample` = overlap$naive_crc_estimate$unique_nbrs_sample_overlap,
+      `Unique Hashed Identifiers in Contacts and Sample` = overlap$unique$total_unique_ident,
+      check.names = FALSE
+    )
+    res <- t(res)
+    colnames(res) <- "Count"
+    res <- as.data.frame(res)
+    return(res)
+  }, rownames = TRUE)
 
   nclicks <- reactiveVal(0)
   point_result <- reactiveVal()
@@ -145,8 +173,11 @@ shinyServer(function(input, output, session) {
     degree <- get_numeric(input$degree)
     nbrs <- get_nbrs()
     rho <- input$rho
+    if(rho_from_data())
+      rho <- NULL
     method <- tolower(input$method)
     small_sample_fraction <- input$small_sample_fraction
+    #set.seed(1)
     res <- cross_tree_pse(subject,recruiter,
                    subject_hash, degree,
                    nbrs, method=method,
@@ -182,12 +213,15 @@ shinyServer(function(input, output, session) {
     degree <- get_numeric(input$degree)
     nbrs <- get_nbrs()
     rho <- input$rho
+    if(rho_from_data()){
+      rho <- NULL
+    }
     method <- tolower(input$method)
     small_sample_fraction <- input$small_sample_fraction
-
     result <- finally(
       catch(
         future({
+          #set.seed(1)
           bootstrap_pse(subject,recruiter,
                          subject_hash, degree,
                          nbrs, method=method,

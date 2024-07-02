@@ -37,7 +37,7 @@ It is up to the study to determine how to integrate hashing into the data collec
 
 ### Via Webpage
 
-A simple html web application is provided for hashing partial phone numbers and (optionally) initials. It can be accessed and downloaded from [https://github.com/fellstat/pnspop/blob/main/inst/shinyui/hasher.html](https://github.com/fellstat/pnspop/blob/main/inst/shinyui/hasher.html).
+A simple html web application is provided for hashing partial phone numbers and (optionally) initials. It can be accessed and downloaded from [https://github.com/fellstat/pnspop/blob/main/inst/shinyui/hasher.html](https://github.com/fellstat/pnspop/blob/main/inst/shinyui/hasher.html). Click "..." and then download to download it.
 
 
 <img src="./images/html_vars.png" style="width:800px !important;"/>
@@ -45,6 +45,8 @@ A simple html web application is provided for hashing partial phone numbers and 
 Edit the variables in the header for your particular study needs and then the file can either be hosted on a web server or loaded locally on the system used for data collection. Note that all computations are done on the client side, so if the file is hosted on a webserver, no information (including identifiers) is transmitted to the server.
 
 <img src="./images/sie.png" style="width:800px !important;" />
+
+Any web server can host the html file. Two services that host html for free are [Tiiny host](https://tiiny.host/) and [Github Pages](https://pages.github.com/).
 
 ### Via Webform
 
@@ -101,7 +103,7 @@ approximate rho of:
 
 
 
-### Shiny Web Application
+# Shiny Web Application
 
 The Shiny web application may be run locally or launched from [epiapps.com](http://www.epiapps.com). Local launching is done using the R package (`pnspop`). First install R from [Cran](https://cran.r-project.org/) and then install the `pnspop` package using the following code 
 
@@ -117,7 +119,7 @@ library(pnspop)
 shiny_pnspop()
 ```
 
-# Loading data
+### Loading data
 
 Data should be in csv format, with missing values coded as `NA`. The data must have the following information in it:
 

@@ -3,7 +3,7 @@ library(shinyWidgets)
 library(shinyhelper)
 
 srhelp <- function(x, content, ...){
-  helper(x, content=content, colour="lightgrey", ...)
+  helper(x, content=content, colour="black", ...)
 }
 
 # Define UI for application that draws a histogram
@@ -107,6 +107,8 @@ shinyUI(
                             actionButton('cancel', 'Cancel')
                           ),
                           mainPanel(
+                            h3("Descriptives"),
+                            tableOutput("descriptives_table")  |> srhelp(content="descript"),
                             h3("Point Estimate"),
                             tableOutput("point_results"),
                             h3("Bootstrap Intervals"),
