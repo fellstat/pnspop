@@ -96,6 +96,7 @@ shinyServer(function(input, output, session) {
       tr <- try(
         rec <- as.character(rid.from.coupons(
           get_raw_data(),
+          subject.id = input$subject,
           subject.coupon = input$subject_coupon,
           coupon.variables = input$coupons
         ))
@@ -106,8 +107,9 @@ shinyServer(function(input, output, session) {
         rec <- NULL
       }
     }else(
-      rec <- get_categorical(input$recruiter)
+      rec <- get_categorical("recruiter")
     )
+    rec
   })
 
 
@@ -119,7 +121,7 @@ shinyServer(function(input, output, session) {
   })
 
   output$degree_plot <- renderPlot({
-    degree <- get_numeric(input$degree)
+    degree <- get_numeric("degree")
     if(is.null(degree))
       return(NULL)
     print(qplot(degree, bins = 30))
@@ -129,7 +131,7 @@ shinyServer(function(input, output, session) {
   rho_value <- reactiveVal(0)
   rho_from_data <- reactiveVal(FALSE)
   observeEvent(input$calc_rho, {
-    subject_hash <- na.omit(get_categorical(input$subject_hash))
+    subject_hash <- na.omit(get_categorical("subject_hash"))
     ns <- length(subject_hash)
     n_matches <- sum(sapply(subject_hash,function(h) sum(subject_hash==h,na.rm=TRUE) - 1))
     rho <- n_matches / (ns*(ns-1))
@@ -145,7 +147,7 @@ shinyServer(function(input, output, session) {
   })
 
   output$descriptives_table <- renderTable({
-    subject_hash <- get_categorical(input$subject_hash)
+    subject_hash <- get_categorical("subject_hash")
     nbrs <- get_nbrs()
     overlap <- overlap_statistics(subject_hash, nbrs)
     res <- data.frame(
@@ -165,12 +167,11 @@ shinyServer(function(input, output, session) {
   nclicks <- reactiveVal(0)
   point_result <- reactiveVal()
   output$point_results <- renderTable({
-    get_recruiter()
     nclicks(0)
-    subject <- get_categorical(input$subject)
-    recruiter <- get_categorical(input$recruiter)
-    subject_hash <- get_categorical(input$subject_hash)
-    degree <- get_numeric(input$degree)
+    subject <- get_categorical("subject")
+    recruiter <- get_recruiter()#get_categorical("recruiter")
+    subject_hash <- get_categorical("subject_hash")
+    degree <- get_numeric("degree")
     nbrs <- get_nbrs()
     rho <- input$rho
     if(rho_from_data())
@@ -207,10 +208,10 @@ shinyServer(function(input, output, session) {
       progress$set(i/nrep)
     }
     n_bootstrap <- nrep <- input$nrep
-    subject <- get_categorical(input$subject)
-    recruiter <- get_categorical(input$recruiter)
-    subject_hash <- get_categorical(input$subject_hash)
-    degree <- get_numeric(input$degree)
+    subject <- get_categorical("subject")
+    recruiter <- get_recruiter()#get_categorical("recruiter")
+    subject_hash <- get_categorical("subject_hash")
+    degree <- get_numeric("degree")
     nbrs <- get_nbrs()
     rho <- input$rho
     if(rho_from_data()){
