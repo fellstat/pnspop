@@ -740,7 +740,8 @@ bootstrap_pse <- function(
   bootstrap <- function(n, rho, rho_known){
 
     id <- 1:n
-    ind <- sample.int(length(degree),n,TRUE, prob = ifelse(is.na(degree),0, 1 / degree))
+    #browser()
+    ind <- sample.int(length(degree),n,TRUE, prob = ifelse(is.na(degree) | degree <= 0,0, 1 / degree))
     pop_degree <- degree[ind]
     pop_n_alters <- n_free_nbrs[ind]
 

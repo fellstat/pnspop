@@ -18,7 +18,7 @@ shinyUI(
                       br(),
                       h5('Please proceed to the', em('Load Data'), 'tab')
              ),
-             tabPanel('Data',
+             tabPanel('Load Data',
                       fluidPage(
                         # Application title
                         titlePanel("Load Data") ,
