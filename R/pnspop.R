@@ -201,6 +201,16 @@ one_step_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NUL
     warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
     degree[is.na(degree)] <- median(degree, na.rm=TRUE)
   }
+
+  #convert to list if needed
+  if(is.data.frame(nbrs) || is.matrix(nbrs)){
+    df <- nbrs
+    nbrs <- list()
+    for(i in 1:nrow(df))
+      nbrs[[i]] <- unlist(df[i,])
+  }
+  nbrs <- lapply(nbrs, na.omit)
+
   s2 <- 1:length(subject)
   r2 <- match(recruiter, subject)
   r2[is.na(r2)] <- -1
@@ -792,6 +802,12 @@ bootstrap_pse <- function(
   sds <- c(sd_norm(log(boots[,1])), sd_norm(boots[,2]))
   lower <- estimates - crit * sds
   upper <- estimates + crit * sds
+
+  # Fall back on quantiles if lots of infinites
+  if(!is.finite(lower[1])){
+    lower[1] <- log(quantile(boots[,1],(1-conf_level)/2))
+  }
+
   result <- data.frame(
     name = c("estimate", "1 / rho"),
     value = estimates,

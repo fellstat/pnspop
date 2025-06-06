@@ -79,7 +79,9 @@ shinyServer(function(input, output, session) {
     if(is.null(dat) || length(rw_names) == 0)
       return(NULL)
     rw <- lapply(as.list(rw_names), function(name){
-      as.character(dat[[name]])
+      x <- as.character(dat[[name]])
+      x[x == ""] <- NA
+      x
     })
     as.data.frame(rw)
   })
@@ -148,6 +150,7 @@ shinyServer(function(input, output, session) {
 
   output$descriptives_table <- renderTable({
     subject_hash <- get_categorical("subject_hash")
+    subject_hash[subject_hash == ""] <- NA
     nbrs <- get_nbrs()
     overlap <- overlap_statistics(subject_hash, nbrs)
     res <- data.frame(
@@ -171,6 +174,7 @@ shinyServer(function(input, output, session) {
     subject <- get_categorical("subject")
     recruiter <- get_recruiter()#get_categorical("recruiter")
     subject_hash <- get_categorical("subject_hash")
+    subject_hash[subject_hash == ""] <- NA
     degree <- get_numeric("degree")
     nbrs <- get_nbrs()
     rho <- input$rho
@@ -211,6 +215,7 @@ shinyServer(function(input, output, session) {
     subject <- get_categorical("subject")
     recruiter <- get_recruiter()#get_categorical("recruiter")
     subject_hash <- get_categorical("subject_hash")
+    subject_hash[subject_hash == ""] <- NA
     degree <- get_numeric("degree")
     nbrs <- get_nbrs()
     rho <- input$rho
