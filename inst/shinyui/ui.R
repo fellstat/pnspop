@@ -89,24 +89,29 @@ shinyUI(
                             radioButtons(
                               inputId = "method",
                               label = "Method:",
-                              choices = c("Network", "Sample","Alter")
+                              choices = c("Network", "Sample","Alter", "Within Tree (n2)")
                             ) |> srhelp(content="method"),
                             numericInput("rho",
                                          "Rho:",
                                          0, min=0)|> srhelp(content="rho"),
                             actionButton("calc_rho","Calculate rho From data"),
-                            br(),
-                            br(),
-                            numericInput("nrep",
-                                         "# of Bootstraps:",
-                                         50, min=2) |> srhelp(content="nrep"),
-                            br(),
-                            checkboxInput("small_sample_fraction","Small Sample Fraction", value = FALSE) |> srhelp(content="small_sample_fraction"),
-                            br(),
-                            actionButton('run', 'Run'),
-                            actionButton('cancel', 'Cancel')
+                            conditionalPanel(
+                              condition = "input.method != 'Within Tree (n2)'",
+                              br(),
+                              br(),
+                              numericInput("nrep",
+                                           "# of Bootstraps:",
+                                           50, min=2) |> srhelp(content="nrep"),
+                              br(),
+                              checkboxInput("small_sample_fraction","Small Sample Fraction", value = FALSE) |> srhelp(content="small_sample_fraction"),
+                              br(),
+                              actionButton('run', 'Run'),
+                              actionButton('cancel', 'Cancel')
+                            )
                           ),
                           mainPanel(
+                            h3("Stree Summary"),
+                            tableOutput("seed_table"),
                             h3("Descriptives"),
                             tableOutput("descriptives_table")  |> srhelp(content="descript"),
                             h3("Point Estimate"),

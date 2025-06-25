@@ -142,6 +142,10 @@ shinyServer(function(input, output, session) {
     updateNumericInput(session, "rho", value=rho)
   })
   observeEvent(input$rho, {
+    if(is.na(as.numeric(input$rho))){
+      rho_from_data(FALSE)
+      return()
+    }
     if(rho_value() == input$rho || abs(rho_value()/input$rho - 1) < .000000001){
       return()
     }
@@ -167,6 +171,16 @@ shinyServer(function(input, output, session) {
     return(res)
   }, rownames = TRUE)
 
+  output$seed_table <- renderTable({
+    subject <- get_categorical("subject")
+    recruiter <- get_recruiter()#get_categorical("recruiter")
+    dat <- data.frame(subject,recruiter,degree=100)
+    dat <- as.rds.data.frame(dat, "subject","recruiter","degree")
+    res <- table(RDS::get.seed.id(dat))
+    res <- data.frame(`Seed ID`= names(res), `Tree Size`=as.vector(res), check.names = FALSE)
+    return(res)
+  }, rownames = TRUE)
+
   nclicks <- reactiveVal(0)
   point_result <- reactiveVal()
   output$point_results <- renderTable({
@@ -178,16 +192,29 @@ shinyServer(function(input, output, session) {
     degree <- get_numeric("degree")
     nbrs <- get_nbrs()
     rho <- input$rho
+    if(is.na(as.numeric(rho))){
+      point_result("Invalid Rho")
+      return()
+    }
     if(rho_from_data())
       rho <- NULL
     method <- tolower(input$method)
     small_sample_fraction <- input$small_sample_fraction
     #set.seed(1)
-    res <- cross_tree_pse(subject,recruiter,
-                   subject_hash, degree,
-                   nbrs, method=method,
-                   small_sample_fraction = small_sample_fraction,
-                   rho = rho)
+
+    if(input$method == "Within Tree (n2)"){
+      res <- one_step_pse(subject,recruiter,
+                              subject_hash, degree,
+                              nbrs,
+                              rho = rho)[1]
+    }else{
+      res <- cross_tree_pse(subject,recruiter,
+                            subject_hash, degree,
+                            nbrs, method=method,
+                            small_sample_fraction = small_sample_fraction,
+                            rho = rho)
+    }
+
     point_result(res)
     res
   }, rownames=FALSE,
@@ -250,6 +277,11 @@ shinyServer(function(input, output, session) {
 
     NULL
   })
+
+  observeEvent(input$method,{
+    boot_result(NULL)
+  })
+
   output$bootstrap1 <- renderTable({
     req(boot_result())
   },digits=4)
