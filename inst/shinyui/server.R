@@ -176,7 +176,7 @@ shinyServer(function(input, output, session) {
     subject <- get_categorical("subject")
     recruiter <- get_recruiter()#get_categorical("recruiter")
     dat <- data.frame(subject,recruiter,degree=100)
-    dat <- as.rds.data.frame(dat, "subject","recruiter","degree")
+    dat <- RDS::as.rds.data.frame(dat, "subject","recruiter","degree")
     res <- table(RDS::get.seed.id(dat))
     res <- data.frame(`Seed ID`= names(res), `Tree Size`=as.vector(res), check.names = FALSE)
     return(res)
@@ -209,6 +209,7 @@ shinyServer(function(input, output, session) {
                               nbrs,
                               rho = rho)[1]
     }else{
+      browser()
       res <- cross_tree_pse(subject,recruiter,
                             subject_hash, degree,
                             nbrs, method=method,
