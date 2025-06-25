@@ -209,7 +209,6 @@ shinyServer(function(input, output, session) {
                               nbrs,
                               rho = rho)[1]
     }else{
-      browser()
       res <- cross_tree_pse(subject,recruiter,
                             subject_hash, degree,
                             nbrs, method=method,
