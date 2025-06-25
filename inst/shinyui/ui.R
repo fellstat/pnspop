@@ -72,7 +72,7 @@ shinyUI(
                                              h2("Network Size Descriptives:"),
                                              plotOutput("degree_plot", width = "100%", height = "200px")
                             ),
-                            dataTableOutput("table"),
+                            DT::DTOutput("table"),
                             width = 7
                           )
                         )

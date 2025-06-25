@@ -115,7 +115,7 @@ shinyServer(function(input, output, session) {
   })
 
 
-  output$table <- renderDataTable({
+  output$table <- DT::renderDT({
     if(is.null(get_raw_data()))
       return(NULL)
 
@@ -126,7 +126,8 @@ shinyServer(function(input, output, session) {
     degree <- get_numeric("degree")
     if(is.null(degree))
       return(NULL)
-    print(qplot(degree, bins = 30))
+    pl <- ggplot() + geom_histogram(aes(x=degree), bins=30)
+    print(pl)
   })
 
 
