@@ -6,7 +6,7 @@ library(shinyhelper)
 plan(multisession)
 library(ggplot2)
 library(pnspop)
-library(RDS)
+library(DT)
 options(shiny.maxRequestSize=300*1024^2)
 
 shinyServer(function(input, output, session) {

@@ -1,7 +1,7 @@
 library(shiny)
 library(shinyWidgets)
 library(shinyhelper)
-
+library(DT)
 srhelp <- function(x, content, ...){
   helper(x, content=content, colour="black", ...)
 }

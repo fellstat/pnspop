@@ -18,7 +18,8 @@ Suggests:
     promises,
     future,
     ipc,
-    ggplot2
+    ggplot2,
+    DT
 Config/testthat/edition: 3
 Imports:
    RDS, shiny
