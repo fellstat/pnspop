@@ -110,7 +110,7 @@ shinyUI(
                             )
                           ),
                           mainPanel(
-                            h3("Stree Summary"),
+                            h3("Tree Summary"),
                             tableOutput("seed_table"),
                             h3("Descriptives"),
                             tableOutput("descriptives_table")  |> srhelp(content="descript"),
