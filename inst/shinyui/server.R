@@ -7,6 +7,7 @@ plan(multisession)
 library(ggplot2)
 library(pnspop)
 library(DT)
+library(RDS)
 options(shiny.maxRequestSize=300*1024^2)
 
 shinyServer(function(input, output, session) {
@@ -202,7 +203,6 @@ shinyServer(function(input, output, session) {
     method <- tolower(input$method)
     small_sample_fraction <- input$small_sample_fraction
     #set.seed(1)
-
     if(input$method == "Within Tree (n2)"){
       res <- one_step_pse(subject,recruiter,
                               subject_hash, degree,
