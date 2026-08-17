@@ -9,7 +9,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3
-Suggests: 
+Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
@@ -22,7 +22,8 @@ Suggests:
     DT
 Config/testthat/edition: 3
 Imports:
-   RDS, shiny
-Depends: 
+   RDS2, shiny
+Remotes: ifellows/RDS2
+Depends:
     R (>= 3.5)
 VignetteBuilder: knitr

@@ -1,7 +1,7 @@
 
 #' @importFrom stats rexp uniroot median na.omit qnorm runif sd
 #' @importFrom utils setTxtProgressBar txtProgressBar
-#' @import RDS
+#' @importFrom RDS2 ss_fixed_point
 NULL
 
 #' Constructs a configuration graph
@@ -532,22 +532,10 @@ cross_tree_pse <- function(
     if(small_sample_fraction){
       deg_wts <- 1 / degree
     }else{
-      if (exists(".Random.seed", .GlobalEnv))
-        oldseed <- .GlobalEnv$.Random.seed
-      else
-        oldseed <- NULL
-
-      deg_wts <- RDS::gile.ss.weights(
-        degree,
-        N = max(ns, N),
-        number.ss.iterations = 5,
-        SS.infinity = max(.000001, 10 * ns / .Machine$integer.max)
-      )
-
-      if (!is.null(oldseed))
-        .GlobalEnv$.Random.seed <- oldseed
-      else if(exists(".Random.seed", envir = .GlobalEnv))
-        rm(".Random.seed", envir = .GlobalEnv)
+      # Gile SS weights via RDS2's deterministic fixed-point solver.
+      # (RDS::gile.ss.weights was Monte Carlo and consumed the RNG
+      # stream, which required saving/restoring .Random.seed here.)
+      deg_wts <- RDS2::ss_fixed_point(degree, population_size = max(ns, N))$weights
     }
     d_population <- sum(deg_wts * degree) / sum(deg_wts)
     d_tilda <- sum(deg_wts * degree * degree) / sum(deg_wts * degree)
@@ -1017,7 +1005,8 @@ shiny_pnspop <- function(...){
     stop("Could not find example directory. Try re-installing `shinyrecap`.", call. = FALSE)
   }
   check_packages(
-    c("shinyWidgets", "shinyhelper", "promises", "future", "ipc", "ggplot2")
+    c("shinyWidgets", "shinyhelper", "promises", "future", "ipc", "ggplot2",
+      "DT")
   )
   shiny::runApp(app_dir, display.mode = "normal", ...)
 }

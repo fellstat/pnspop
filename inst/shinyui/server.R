@@ -7,7 +7,6 @@ plan(multisession)
 library(ggplot2)
 library(pnspop)
 library(DT)
-library(RDS)
 options(shiny.maxRequestSize=300*1024^2)
 
 shinyServer(function(input, output, session) {
@@ -176,9 +175,12 @@ shinyServer(function(input, output, session) {
   output$seed_table <- renderTable({
     subject <- get_categorical("subject")
     recruiter <- get_recruiter()#get_categorical("recruiter")
-    dat <- data.frame(subject,recruiter,degree=100)
-    dat <- RDS::as.rds.data.frame(dat, "subject","recruiter","degree")
-    res <- table(RDS::get.seed.id(dat))
+    # Normalize as the estimators do: a recruiter absent from the sample
+    # marks a seed. Trace each subject to their root seed and tabulate.
+    r2 <- match(recruiter, subject)
+    r2[is.na(r2)] <- -1
+    seed <- pnspop:::get_seed(seq_along(subject), r2)
+    res <- table(subject[seed])
     res <- data.frame(`Seed ID`= names(res), `Tree Size`=as.vector(res), check.names = FALSE)
     return(res)
   }, rownames = TRUE)
