@@ -473,6 +473,7 @@ cross_tree_pse <- function(
   out_sets <- list()
   match_sets <- list()
   match_degrees <- list()
+  match_nonseed <- list()
   o <- rep(0, max(seed_ids))
   for(s in seed_ids){
     out_sets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
@@ -496,9 +497,21 @@ cross_tree_pse <- function(
       }
       deg
     }))
+    # 1 if the matched subject is a non-seed (has a recruiter), 0 for seeds:
+    # the I(R_i != -1) in the manuscript's match-weight denominator
+    match_nonseed[[s]] <- unlist(lapply(match_sets[[s]], function(x){
+      ind <- list()
+      for(a in x){
+        mId <- which(subject_hash == a & seed != s)
+        ind[[length(ind) + 1]] <- as.numeric(recruiter[mId] != -1)
+      }
+      ind
+    }))
 
     if(length(match_degrees) < s || is.null(match_degrees[[s]]))
       match_degrees[[s]] <- numeric()
+    if(length(match_nonseed) < s || is.null(match_nonseed[[s]]))
+      match_nonseed[[s]] <- numeric()
     o[s] <- length(unlist(out_sets[[s]]))
     #q[s] <- sum(degree_nbrs[seed==s] * sapply(out_sets[[s]], length)) / o[s]
   }
@@ -560,7 +573,11 @@ cross_tree_pse <- function(
 
         if(is.null(out_set))
           next
-        wts <- 1 / (d_population * rho * (N - 1) / (match_degrees[[s]] - 1) + 1)
+        # Manuscript section 3.2 match weight: numerator includes the
+        # -n+t correction (as does ptrue above); denominator subtracts an
+        # edge end only for non-seeds, I(R_i != -1).
+        wts <- 1 / (rho * (d_population * (N - 1) - ns + length(seed_ids)) /
+                      (match_degrees[[s]] - match_nonseed[[s]]) + 1)
         wts[is.nan(wts)] <- 1
         m <- sum(wts)
 

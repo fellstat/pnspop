@@ -4,3 +4,6 @@
 ^pnspop\.Rproj$
 ^README\.Rmd$
 ^docs
+^simstudy$
+^PLAN\.md$
+^CODE_REVIEW\.md$

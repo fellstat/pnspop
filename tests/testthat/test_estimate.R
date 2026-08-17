@@ -3,22 +3,26 @@ test_that("main", {
   data(faux_pns)
 
   #hashes
+  # Expected values updated 2026-08-17 when the sample-match privatization
+  # weight was aligned to manuscript section 3.2 (CODE_REVIEW.md 2.1):
+  # numerator gains the -n+t correction, denominator subtracts an edge end
+  # only for non-seeds. Pre-fix values: 1073, 938, and (925, 935) bounds.
   pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
                  faux_pns$subject_hash, faux_pns$degree,
                  faux_pns[paste0("friend_hash",1:11)], rho=.001)
-  testthat::expect_equal(round(unlist(pp)), c(1073, 0,    687,  350764), ignore_attr = TRUE)
+  testthat::expect_equal(round(unlist(pp)), c(1056, 0,    687,  350764), ignore_attr = TRUE)
 
   pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
                        faux_pns$subject_hash, faux_pns$degree,
                        faux_pns[paste0("friend_hash",1:11)])
   testthat::expect_equal(floor(1/pp$rho), 1170, ignore_attr = TRUE)
-  testthat::expect_equal(floor(pp$estimate), 938, ignore_attr = TRUE)
+  testthat::expect_equal(floor(pp$estimate), 926, ignore_attr = TRUE)
 
   pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
                        faux_pns$subject_hash, faux_pns$degree,
                        faux_pns[paste0("friend_hash",1:11)], small_sample_fraction = FALSE)
 
-  testthat::expect_true(pp$estimate > 925 & pp$estimate < 935)
+  testthat::expect_true(pp$estimate > 913 & pp$estimate < 923)
 
   faux_pns2 <- faux_pns[200:1,]
   pp <- cross_tree_pse(faux_pns$subject,faux_pns$recruiter,
