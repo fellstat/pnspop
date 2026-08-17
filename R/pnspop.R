@@ -6,7 +6,7 @@ NULL
 
 #' Constructs a configuration graph
 #' @param d a vector of degrees for each node
-#' @return A matrix with 3 columns and length(d) rows,
+#' @return A matrix with 3 columns and approximately sum(d)/2 rows,
 #' with each row representing an edge. Edges are from
 #' the first column to the second column, with the third column
 #' indicating whether the edge is reciprocated (1 -> reciprocated, 0 -> directed).
@@ -19,18 +19,24 @@ NULL
 #' @export
 make_configuration_graph <- function(d){
   n <- length(d)
+  if(sum(d) < 0.5)
+    return(matrix(numeric(), nrow=0, ncol=3))
   edges <- list()
   d1 <- d
   while(sum(d1)>0.5){
     l <- sample.int(n,1,prob=d1)
     dt <- d1
-    dt[l] <- d1[l] - 1
+    dt[l] <- 0 # exclude l so self-loops are impossible
     if(sum(dt) > 0.5){
       k <- sample.int(n,1,prob=dt)
       v <- TRUE
       d1[k] <- d1[k] - 1
     }else{
-      k <- sample.int(n,1,prob=d)
+      dp <- d
+      dp[l] <- 0
+      if(sum(dp) < 0.5)
+        stop("Cannot construct graph: only one node has positive degree")
+      k <- sample.int(n,1,prob=dp)
       v <- FALSE
     }
     d1[l] <- d1[l] - 1
@@ -41,7 +47,7 @@ make_configuration_graph <- function(d){
 }
 
 
-#' Create and RDS sample from a graph
+#' Create an RDS sample from a graph
 #' @param el A matrix with three columns, where each row is an edge. Edges are from
 #' the first column to the second column, with the third column
 #' indicating whether the edge is reciprocated (1 -> reciprocated, 0 -> directed).
@@ -52,7 +58,7 @@ make_configuration_graph <- function(d){
 #' @param biased If true, all seeds are drawn from subjects with the highest level of g.
 #' @param pr A probability vector for the number of recruits. The first element is the
 #' probability that a subject tries to recruit no neighbors. The second element is the probability
-#' that a subject tries to recruit 1 neightbor, and so on. Subjects can not recruit more
+#' that a subject tries to recruit 1 neighbor, and so on. Subjects can not recruit more
 #' neighbors than they have available.
 #' @param seeds seed ids to override other options
 #' @param exclude ids to exclude from sampling
@@ -77,7 +83,6 @@ make_configuration_graph <- function(d){
 samp_rds <- function(el, d, ns, g, ss, biased=TRUE,pr = c(0,.1,.9), seeds=NULL, exclude=c()){
   maxR <- length(pr) -1
   n <- length(g)
-  ml <- if(is.factor(g)) max(levels(g)) else max(g)
   if(is.null(seeds)){
     if(biased){
       seeds <- sample.int(n,ns,prob=as.numeric(as.factor(g))-1)
@@ -85,7 +90,7 @@ samp_rds <- function(el, d, ns, g, ss, biased=TRUE,pr = c(0,.1,.9), seeds=NULL, 
       seeds <- sample.int(n,ns, prob = d)
     }
   }
-  samp <- c(exclude,seeds)
+  samp <- seeds
   recr <- rep(-1,ns)
   time <- 0 + (1:ns)/10000000
   rcTime <- rexp(ns)
@@ -94,7 +99,10 @@ samp_rds <- function(el, d, ns, g, ss, biased=TRUE,pr = c(0,.1,.9), seeds=NULL, 
     subjIndex <- which.min(t1 + rcTime)
     if(length(subjIndex)==0){
       print("redraw")
-      subj <- sample( (1:n)[-samp],1)
+      candidates <- setdiff(1:n, c(samp, exclude))
+      if(length(candidates) == 0)
+        stop("No unsampled subjects available for seed redraw.")
+      subj <- candidates[sample.int(length(candidates),1)]
       samp <- c(samp,subj)
       recr <- c(recr,-1)
       time <- c(time,max(time+1))
@@ -108,7 +116,7 @@ samp_rds <- function(el, d, ns, g, ss, biased=TRUE,pr = c(0,.1,.9), seeds=NULL, 
       nbrs <- rbind(el[el[,1]==subj,2:3,drop=FALSE],
                     el[el[,2]==subj & el[,3]>0.5,c(1,3),drop=FALSE]
       )
-      nbrs <- nbrs[!(nbrs[,1] %in% samp) & nbrs[,1]!=subj,,drop=FALSE]
+      nbrs <- nbrs[!(nbrs[,1] %in% c(samp, exclude)) & nbrs[,1]!=subj,,drop=FALSE]
       nr <- min(nr,nrow(nbrs))
       if(nr>0){
         s <- sample.int(nrow(nbrs),nr,replace=FALSE)
@@ -116,7 +124,7 @@ samp_rds <- function(el, d, ns, g, ss, biased=TRUE,pr = c(0,.1,.9), seeds=NULL, 
         nr <- length(s)
         samp <- c(samp,nbrs[s,1])
         recr <- c(recr,rep(subj,nr))
-        tm <- t + t + (0:(nr-1)) / 1000000
+        tm <- t + (0:(nr-1)) / 1000000
         time <- c(time,tm)
         t1 <- c(t1,tm)
         rcTime <- c(rcTime,rexp(nr))
@@ -130,24 +138,41 @@ samp_rds <- function(el, d, ns, g, ss, biased=TRUE,pr = c(0,.1,.9), seeds=NULL, 
 #' get the root seed for each subject
 #' @param id subject ids
 #' @param recruiter.id subject recruiter id
+#' @noRd
 get_seed <- function(id, recruiter.id){
   sid <- -1
-  get.seed <- function(i, history) {
-    row <- match(i, id)
-    rec.id <- recruiter.id[row]
-    if(rec.id==i){
-      stop(sprintf("Yikes! The data says that the person with id %s recruited themselves! Please check that the coupon information in the data for that person is correct :-)",i),call.=FALSE)}
-    if(rec.id %in% history){
-      stop("Loop found in recruitment tree.")
-    }
-    if (rec.id == sid) {
-      return(i)
-    }
-    else {
-      get.seed(rec.id,history=c(history,i))
+  n <- length(id)
+  seed <- rep(NA, n)
+  for(j in seq_len(n)){
+    if(!is.na(seed[j]))
+      next
+    chain <- j
+    row <- j
+    repeat{
+      i <- id[row]
+      rec.id <- recruiter.id[row]
+      if(rec.id == i){
+        stop(sprintf("Yikes! The data says that the person with id %s recruited themselves! Please check that the coupon information in the data for that person is correct :-)",i),call.=FALSE)
+      }
+      if(rec.id == sid){
+        seed[chain] <- i
+        break
+      }
+      rec.row <- match(rec.id, id)
+      if(is.na(rec.row)){
+        stop(sprintf("Recruiter id %s does not match any subject id and is not the seed indicator (-1).", rec.id), call.=FALSE)
+      }
+      if(rec.row %in% chain){
+        stop("Loop found in recruitment tree.")
+      }
+      if(!is.na(seed[rec.row])){
+        seed[chain] <- seed[rec.row]
+        break
+      }
+      chain <- c(chain, rec.row)
+      row <- rec.row
     }
   }
-  seed <- sapply(id, get.seed,history=c())
   seed
 }
 
@@ -162,7 +187,7 @@ get_seed <- function(id, recruiter.id){
 #' @param rho The probability two random individuals have the same hash value.
 #' If NULL this is estimated from the number of hash collisions in subject_hash.
 #' @return
-#' A list with elements:
+#' A one-row data.frame with columns:
 #' 'estimate': The n_2 population size estimate, adjusted for hashing
 #' 'cross_seed_estimate' : The n_3 cross-seed estimate, adjusted for hashing
 #' 'rho': The value of rho
