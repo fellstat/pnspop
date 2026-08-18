@@ -1040,7 +1040,15 @@ pns_sample <- function(pop_degree, n_seed){
 overlap_statistics <- function(subject_hash, nbrs){
   subject_hash <- na.omit(as.character(subject_hash))
   nsamp <- length(subject_hash)
-  nbrs <- na.omit(as.character(as.matrix(nbrs)))
+  # A plain list (the documented input type) must be flattened element by
+  # element; as.matrix() on a list would deparse each element to a string
+  # like "c(\"a\", \"b\")" and nothing would ever match (CODE_REVIEW.md 2.7)
+  if(is.list(nbrs) && !is.data.frame(nbrs)){
+    nbrs <- unlist(nbrs, use.names = FALSE)
+  }else{
+    nbrs <- as.matrix(nbrs)
+  }
+  nbrs <- na.omit(as.character(nbrs))
   unbrs <- unique(nbrs)
   un <- length(unbrs)
   nbrs_in_sample <- sum(unbrs %in% subject_hash)

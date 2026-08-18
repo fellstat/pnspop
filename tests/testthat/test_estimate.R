@@ -61,6 +61,29 @@ test_that("estimated rho with missing hashes is stable", {
 })
 
 
+test_that("overlap_statistics accepts all documented nbrs types", {
+  # Values pinned on faux_pns (2026-08-17). List input (the documented
+  # type) previously deparsed each element to a "c(...)" string and
+  # matched nothing (CODE_REVIEW.md 2.7): data.frame, matrix and list
+  # inputs must agree exactly.
+  data(faux_pns)
+  fh <- paste0("friend_hash", 1:11)
+  b <- overlap_statistics(faux_pns$subject_hash, faux_pns[fh])
+  testthat::expect_equal(b$neighbors$total_nbrs, 949)
+  testthat::expect_equal(b$neighbors$unique_nbrs, 430)
+  testthat::expect_equal(b$unique$total_unique_ident, 447)
+  testthat::expect_equal(b$naive_crc_estimate$unique_nbrs_sample_overlap, 183)
+  testthat::expect_equal(floor(b$naive_crc_estimate$N), 469)
+
+  bm <- overlap_statistics(faux_pns$subject_hash, as.matrix(faux_pns[fh]))
+  testthat::expect_identical(b, bm)
+
+  nbl <- lapply(seq_len(nrow(faux_pns)), function(i) unlist(faux_pns[i, fh]))
+  bl <- overlap_statistics(faux_pns$subject_hash, nbl)
+  testthat::expect_identical(b, bl)
+})
+
+
 test_that("bootstrap_pse contract", {
   # Pins the bootstrap CI machinery (values captured 2026-08-17, seed 101,
   # bit-identical across the 1.2/1.7/1.8/2.8 hardening) and the
