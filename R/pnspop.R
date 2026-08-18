@@ -435,6 +435,10 @@ cross_tree_pse <- function(
     stop("No missing subject identifiers allowed")
   if(anyNA(recruiter))
     stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
+  n_input <- length(subject)
+  if(length(recruiter) != n_input || length(subject_hash) != n_input ||
+     length(degree) != n_input)
+    stop("subject, recruiter, subject_hash and degree must all have the same length")
 
   #convert to list if needed
   if(is.data.frame(nbrs) || is.matrix(nbrs)){
@@ -443,6 +447,8 @@ cross_tree_pse <- function(
     for(i in 1:nrow(df))
       nbrs[[i]] <- unlist(df[i,])
   }
+  if(length(nbrs) != n_input)
+    stop("nbrs must have one element (or row) per subject")
   nbrs <- lapply(nbrs, na.omit)
 
   # Put seeds first
@@ -460,21 +466,13 @@ cross_tree_pse <- function(
   r2[is.na(r2)] <- -1
   subject <- s2
   recruiter <- r2
-  seed <- get_seed(subject,recruiter)
-  seed_ids <- sort(unique(seed))
-  non_seeds <- setdiff(1:ns,seed_ids)
-  n_seed <- length(seed_ids)
-
   ##
   #
-  # subject ids are now reorganized so that they are 1:ns with the seeds having ids 1:n_seed.
+  # subject ids are now reorganized so that they are 1:ns with the seeds at the start.
   # variables are sorted by subject id.
   #
   ##
-
-
   seed <- get_seed(subject,recruiter)
-  ns <- length(subject)
 
   # Handle missing hashes
   if(anyNA(subject_hash)){
@@ -503,9 +501,11 @@ cross_tree_pse <- function(
 
   seed_ids <- sort(unique(seed))
 
-  # Calculate hash collision probability if not specified
+  # Calculate hash collision probability if not specified (missing hashes
+  # were dropped above, so every pairwise comparison is well defined)
   if(is.null(rho)){
-    n_matches <- sum(sapply(subject_hash,function(h) sum(subject_hash==h,na.rm=TRUE) - 1))
+    hash_counts <- table(subject_hash)
+    n_matches <- sum(hash_counts * (hash_counts - 1))
     rho <- n_matches / (ns*(ns-1))
   }
 
@@ -516,11 +516,11 @@ cross_tree_pse <- function(
   match_nonseed <- list()
   o <- rep(0, max(seed_ids))
   for(s in seed_ids){
-    out_sets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
-      excl <- subject_hash[recruiter == x[1]]
-      if(x[2] != -1)
-        excl <- c(excl, subject_hash[match(x[2], subject)])
-      nb <- nbrs[[x[1]]]
+    out_sets[[s]] <- lapply(which(seed == s), function(j){
+      excl <- subject_hash[recruiter == subject[j]]
+      if(recruiter[j] != -1)
+        excl <- c(excl, subject_hash[match(recruiter[j], subject)])
+      nb <- nbrs[[j]]
       for(e in excl){
         i <- which(nb %in% e)
         if(length(i) > 0)
@@ -553,17 +553,21 @@ cross_tree_pse <- function(
     if(length(match_nonseed) < s || is.null(match_nonseed[[s]]))
       match_nonseed[[s]] <- numeric()
     o[s] <- length(unlist(out_sets[[s]]))
-    #q[s] <- sum(degree_nbrs[seed==s] * sapply(out_sets[[s]], length)) / o[s]
   }
 
+  # Cross-tree nomination matches, counted by tabulating each tree's
+  # nominations against the pooled nominations (O(total nominations))
+  # rather than comparing every pair; match() shares ==-equality
+  # semantics so the counts are identical to the pairwise loop.
   cross_net_matches <- rep(0, max(seed_ids))
   o_mc <- rep(0, max(seed_ids))
+  all_out <- unlist(out_sets)
+  out_vals <- unique(all_out)
+  total_count <- tabulate(match(all_out, out_vals), nbins = length(out_vals))
   for(s in seed_ids){
-    stree <- unlist(out_sets[[s]])
-    scross <- unlist(out_sets[-s])
-    for(i in seq_along(stree)){
-      cross_net_matches[s] <- cross_net_matches[s] + sum(stree[i] == scross)
-    }
+    tree_count <- tabulate(match(unlist(out_sets[[s]]), out_vals),
+                           nbins = length(out_vals))
+    cross_net_matches[s] <- sum(tree_count * (total_count - tree_count))
     o_mc[s] <- sum(o[-s])
   }
 

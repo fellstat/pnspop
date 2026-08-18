@@ -35,6 +35,32 @@ test_that("main", {
 })
 
 
+test_that("estimated rho with missing hashes is stable", {
+  # Pins the post-NA-drop estimated-rho path and match counting in
+  # cross_tree_pse. Values captured 2026-08-17 immediately BEFORE the
+  # CODE_REVIEW.md 4.3/1.2 refactor (table-based rho count, tabulated
+  # cross-tree matches, lapply out-sets), which must be bit-identical.
+  data(faux_pns)
+  h <- faux_pns$subject_hash
+  set.seed(5)
+  h[sample.int(nrow(faux_pns), 25)] <- NA
+  for (m in c("network", "alter", "sample")) {
+    pp <- cross_tree_pse(faux_pns$subject, faux_pns$recruiter, h,
+                         faux_pns$degree, faux_pns[paste0("friend_hash", 1:11)],
+                         method = m)
+    testthat::expect_equal(floor(1 / pp$rho), 1268)
+    testthat::expect_equal(
+      floor(pp$estimate),
+      c(network = 866, alter = 897, sample = 784)[[m]]
+    )
+    testthat::expect_equal(
+      pp$num_matches,
+      c(network = 646, alter = 482, sample = 164)[[m]]
+    )
+  }
+})
+
+
 test_that("random missingness does not corrupt estimates", {
   # Guards the NA handling added 2026-08-17 (CODE_REVIEW.md 1.1 + the
   # NA-hash subject drop in one_step_pse/cross_tree_pse).
