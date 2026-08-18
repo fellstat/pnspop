@@ -760,6 +760,25 @@ bootstrap_pse <- function(
   s2 <- 1:length(subject)
   r2 <- match(recruiter, subject)
   r2[is.na(r2)] <- -1
+  seed <- get_seed(s2, r2)
+
+  # Mirror the estimators (CODE_REVIEW.md 2.9): subjects with missing
+  # hashes are dropped from the estimation sample, so the bootstrap world
+  # -- tree sizes, degree pool and nomination rates -- is built from the
+  # retained subjects only. Tree membership is computed above, before the
+  # drop, so recruitment chains survive the removal.
+  if(anyNA(subject_hash)){
+    keep <- !is.na(subject_hash)
+    old_ids <- s2[keep]
+    seed <- seed[keep]
+    subject_hash <- subject_hash[keep]
+    degree <- degree[keep]
+    nbrs <- nbrs[keep]
+    s2 <- seq_along(old_ids)
+    r2 <- match(r2[keep], old_ids)
+    r2[is.na(r2)] <- -1
+  }
+
   # lapply, never apply: with a uniform number of free alters per subject,
   # apply() returns a matrix and sapply(., length) below silently produces
   # per-cell 1s instead of per-subject counts (CODE_REVIEW.md 1.2)
@@ -776,7 +795,6 @@ bootstrap_pse <- function(
     nb
   })
   n_free_nbrs <- sapply(free_nbrs, length)
-  seed <- get_seed(subject,recruiter)
   tree_sizes <- table(seed)
   tree_seed_ids <- as.numeric(names(tree_sizes))
 
@@ -792,7 +810,10 @@ bootstrap_pse <- function(
     }
     nn
   })
-  nom_rate_by_seed <- nfn_by_seed / maxfn_by_seed
+  # A tree can have no free edge ends at all (e.g. two degree-1 subjects):
+  # 0/0 would give NaN and NA-select nominations downstream; the observed
+  # rate of an empty tree is 0 (CODE_REVIEW.md 2.9)
+  nom_rate_by_seed <- ifelse(maxfn_by_seed > 0, nfn_by_seed / maxfn_by_seed, 0)
 
   # generate one bootstrap sample
   bootstrap <- function(n, rho, rho_known){
@@ -808,9 +829,15 @@ bootstrap_pse <- function(
     bs_nbrs <- samp$nbrs
     for(i in seq_along(bs_nbrs)){
       alters <- bs_nbrs[[i]]
-      alters <- setdiff(alters, samp$subject[samp$recruiter == samp$subject[i]])
-      #if(samp$recruiter[i] != -1)
-      #  alters <- setdiff(alters, samp$subject[samp$subject == samp$recruiter[i]])
+      # Remove this subject's recruits -- every copy, while preserving
+      # duplicate edges to others (setdiff would silently dedupe
+      # multi-edges). The recruiter edge is intentionally left in and
+      # thinned like any other nomination; cross_tree_pse excludes one
+      # recruiter instance from the nominations downstream. The
+      # asymmetry (recruits removed here, recruiter handled by the
+      # estimator) mirrors how the observed nomination rate was
+      # computed from free alters (CODE_REVIEW.md 2.9).
+      alters <- alters[!(alters %in% samp$subject[samp$recruiter == samp$subject[i]])]
       alters <- alters[runif(length(alters)) < nom_rate_by_seed[samp$seed[i]]]
       bs_nbrs[[i]] <- alters
     }
@@ -892,7 +919,6 @@ bootstrap_pse <- function(
 # pop_degree : the degrees of the population
 # n_seed : The number recruited by each seed
 pns_sample <- function(pop_degree, n_seed){
-  p_seed <- n_seed / sum(n_seed)
   n <- sum(n_seed)
   N <- length(pop_degree)
 
@@ -901,14 +927,13 @@ pns_sample <- function(pop_degree, n_seed){
   for(i in 1:N){
     alt[[i]] <- numeric()
   }
-  d1 <- d <- pop_degree
-  not_sampled <- rep(TRUE, N)
+  d <- pop_degree
   seed <- rep(0, N)
 
-  #draw seeds
+  # draw seeds; already-sampled subjects have d == 0 and so cannot be redrawn
   j <- 1
-  while(j <= length(p_seed)){
-    s[j] <- sample.int(N, 1, prob = d*not_sampled)
+  while(j <= length(n_seed)){
+    s[j] <- sample.int(N, 1, prob = d)
     alt[[s[j]]] <- sample.int(N, d[s[j]], prob = d)
     for(i in alt[[s[j]]]){
       alt[[i]] <- c(alt[[i]], s[j])
@@ -922,7 +947,6 @@ pns_sample <- function(pop_degree, n_seed){
 
   #draw sample from seeds
   while(sum(n_seed) > 0){
-    #print(sum(n_seed))
     # select a seed tree to recruit from
     sd <- sample.int(length(n_seed), 1, prob=n_seed)
     found <- FALSE
@@ -930,8 +954,9 @@ pns_sample <- function(pop_degree, n_seed){
     while(!found){
       k <- k + 1
       if(k > 5000){
-        # No free edge ends. Abort
-        warnings("Free edge end search failed in pns sampling.")
+        # No free edge ends: give up on one recruit for this tree. The
+        # returned sample will be smaller than requested.
+        warning("Free edge end search failed in pns sampling.")
         n_seed[sd] <- n_seed[sd] - 1
         break
       }
@@ -939,10 +964,16 @@ pns_sample <- function(pop_degree, n_seed){
       # draw a random individual from the seed tree to be a recruiter
       recr <- sample.int(N, 1, prob=seed==sd)
 
-      # add a free neighbor if recruitment from the tree has been exhausted
+      # add a free neighbor if recruitment from the tree has been exhausted;
+      # account for the new edge on both ends so the neighbor's remaining
+      # stub count stays consistent (CODE_REVIEW.md 2.9)
       if(length(setdiff(unlist(alt[seed == sd]), s)) == 0){
+        if(sum(d) <= 0)
+          stop("No free edge ends remain in the bootstrap population")
         nnbr <- sample.int(N, 1, prob = d)
         alt[[recr]] <- c(alt[[recr]], nnbr)
+        alt[[nnbr]] <- c(alt[[nnbr]], recr)
+        d[nnbr] <- d[nnbr] - 1
       }
 
       # the alters of the recruiter who have not been recruited
@@ -954,9 +985,6 @@ pns_sample <- function(pop_degree, n_seed){
         # follow a random edge from the recruiter to a new subject
         s[j] <- fnbr[sample.int(length(fnbr),1)]
         r[j] <- recr
-
-        #if(seed[s[j]] != 0)
-        #  browser()
 
         # draw alters for the new subject
         nnbr <- sample.int(N, d[s[j]], prob = d)
