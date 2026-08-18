@@ -2,8 +2,8 @@ Package: pnspop
 Type: Package
 Title: Population Size Estimation from Privatized Network Sampling (PNS) or Respondent Driven Sampling (RDS) Data
 Version: 0.2.0
-Author: Ian E. Fellows
-Maintainer: Ian E. Fellows <ian@fellstat.com>
+Authors@R: person("Ian E.", "Fellows", email = "ian@fellstat.com",
+    role = c("aut", "cre"))
 Description: This package utilizes the methods of Khan et. al. One-step Estimation of Networked Population Size: Respondent-Driven Capture-Recapture with Anonymity (2017) to estimate population size from RDS or PNS data.
 License: MIT + file LICENSE
 Encoding: UTF-8
@@ -25,5 +25,5 @@ Imports:
    RDS2, shiny
 Remotes: ifellows/RDS2
 Depends:
-    R (>= 3.5)
+    R (>= 4.1)
 VignetteBuilder: knitr

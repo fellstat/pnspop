@@ -311,10 +311,12 @@ function runScript(){
         if(fndouble != fn){
           alert("Double Data Entry: Initials do not match")
           form["key"].value = ""
+          return;
         }
         if(lndouble != ln){
           alert("Double Data Entry: phone numbers do not match")
           form["key"].value = ""
+          return;
         }
     }
     var code = fn + " : " + ln + salt;
