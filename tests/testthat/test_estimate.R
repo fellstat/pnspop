@@ -61,6 +61,36 @@ test_that("estimated rho with missing hashes is stable", {
 })
 
 
+test_that("bootstrap_pse contract", {
+  # Pins the bootstrap CI machinery (values captured 2026-08-17, seed 101,
+  # bit-identical across the 1.2/1.7/1.8/2.8 hardening) and the
+  # infinite-point-estimate branch (CODE_REVIEW.md 1.7): the "1 / rho" row
+  # must hold 1/rho, and conf_level must reflect the argument.
+  skip_on_cran()
+  data(faux_pns)
+  fh <- paste0("friend_hash", 1:11)
+  set.seed(101)
+  b <- bootstrap_pse(faux_pns$subject, faux_pns$recruiter, faux_pns$subject_hash,
+                     faux_pns$degree, faux_pns[fh], rho = .001,
+                     n_bootstrap = 10, progress = FALSE)
+  testthat::expect_equal(floor(b$value), c(1055, 1000))
+  testthat::expect_true(b$ci_lower_bound[1] < b$value[1],
+                        b$value[1] < b$ci_upper_bound[1])
+  testthat::expect_equal(b$ci_lower_bound[2], 1000) # rho known: degenerate CI
+  testthat::expect_equal(nrow(attr(b, "bootstrap_samples")), 10)
+
+  # Infinite point estimate (alter method, zero cross-tree matches)
+  un_nbrs <- as.data.frame(matrix(1000 + 1:120, nrow = 40))
+  nr <- suppressWarnings(
+    bootstrap_pse(1:40, rep(-1, 40), 1:40, rep(6, 40), un_nbrs, rho = .01,
+                  method = "alter", n_bootstrap = 5, conf_level = .9,
+                  progress = FALSE))
+  testthat::expect_true(is.infinite(nr$value[1]))
+  testthat::expect_equal(nr$value[2], 100) # 1/rho, not rho
+  testthat::expect_equal(attr(nr, "conf_level"), 0.9)
+})
+
+
 test_that("random missingness does not corrupt estimates", {
   # Guards the NA handling added 2026-08-17 (CODE_REVIEW.md 1.1 + the
   # NA-hash subject drop in one_step_pse/cross_tree_pse).

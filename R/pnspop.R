@@ -711,8 +711,6 @@ bootstrap_pse <- function(
     progress <- TRUE
   }
   method <- match.arg(method)
-
-  method <- match.arg(method)
   add_alter <- method %in% c("network","alter")
   add_sample <- method %in% c("network","sample")
 
@@ -749,24 +747,27 @@ bootstrap_pse <- function(
     null_result <- structure(
       list(
         name = c("estimate", "1 / rho"),
-        value = c(point_estimate$estimate, point_estimate$rho),
+        value = c(point_estimate$estimate, 1 / point_estimate$rho),
         ci_lower_bound = c(NA, NA),
         ci_upper_bound = c(NA, NA)),
       row.names = c(NA, -2L),
       class = "data.frame",
       bootstrap_samples = matrix(numeric(),0,2),
-      conf_level = 0.95)
+      conf_level = conf_level)
     return(null_result)
   }
   # Get the number of alter ids recorded excluding recruiter and recrutee
   s2 <- 1:length(subject)
   r2 <- match(recruiter, subject)
   r2[is.na(r2)] <- -1
-  free_nbrs <- apply(cbind(s2, r2), 1, function(x){
-    excl <- subject_hash[r2 == x[1]]
-    if(x[2] != -1)
-      excl <- c(excl, subject_hash[match(x[2], s2)])
-    nb <- nbrs[[x[1]]]
+  # lapply, never apply: with a uniform number of free alters per subject,
+  # apply() returns a matrix and sapply(., length) below silently produces
+  # per-cell 1s instead of per-subject counts (CODE_REVIEW.md 1.2)
+  free_nbrs <- lapply(s2, function(j){
+    excl <- subject_hash[r2 == j]
+    if(r2[j] != -1)
+      excl <- c(excl, subject_hash[match(r2[j], s2)])
+    nb <- nbrs[[j]]
     for(e in excl){
       i <- which(nb %in% e)
       if(length(i) > 0)
@@ -775,17 +776,15 @@ bootstrap_pse <- function(
     nb
   })
   n_free_nbrs <- sapply(free_nbrs, length)
-  hash_size <- 1 / rho
   seed <- get_seed(subject,recruiter)
-  ns <- table(seed)
-  sds <- as.numeric(names(ns))
-  nsamp <- sum(ns)
+  tree_sizes <- table(seed)
+  tree_seed_ids <- as.numeric(names(tree_sizes))
 
   # calculate the rate at which alters are nominated
-  nfn_by_seed <- sapply(sds, function(sd){
+  nfn_by_seed <- sapply(tree_seed_ids, function(sd){
     sum(n_free_nbrs[seed == sd],na.rm=TRUE)
   })
-  maxfn_by_seed <- sapply(sds, function(sd){
+  maxfn_by_seed <- sapply(tree_seed_ids, function(sd){
     nn <- sum(degree[seed == sd],na.rm=TRUE) - 2 * (sum(seed == sd) - 1)
     nfn <- sum(n_free_nbrs[seed == sd],na.rm=TRUE)
     if(nn < nfn){
@@ -799,13 +798,11 @@ bootstrap_pse <- function(
   bootstrap <- function(n, rho, rho_known){
 
     id <- 1:n
-    #browser()
     ind <- sample.int(length(degree),n,TRUE, prob = ifelse(is.na(degree) | degree <= 0,0, 1 / degree))
     pop_degree <- degree[ind]
-    pop_n_alters <- n_free_nbrs[ind]
 
     # draw sample
-    samp <- pns_sample(pop_degree, ns)
+    samp <- pns_sample(pop_degree, tree_sizes)
 
     # match observed alter nomination rates
     bs_nbrs <- samp$nbrs
@@ -834,28 +831,47 @@ bootstrap_pse <- function(
   }
 
   boots <- matrix(NA, n_bootstrap, 2)
+  n_failed <- 0
   for(i in 1:n_bootstrap){
     if(progress)
       progress_function(i)
-    b1 <- bootstrap(round(point_estimate$estimate), point_estimate$rho, !is.null(rho))
-    boots[i,] <- b1
+    b1 <- tryCatch(
+      bootstrap(round(point_estimate$estimate), point_estimate$rho, !is.null(rho)),
+      error = function(e) NULL)
+    if(is.null(b1))
+      n_failed <- n_failed + 1
+    else
+      boots[i,] <- b1
   }
+  if(n_failed == n_bootstrap)
+    stop("All ", n_bootstrap, " bootstrap replicates failed")
+  if(n_failed > 0)
+    warning(n_failed, " of ", n_bootstrap,
+            " bootstrap replicates failed and were dropped")
   crit <- -qnorm((1-conf_level)/2)
 
   estimates <- c( log(point_estimate$estimate), point_estimate$rho)
 
   # robust standard error assuming normal distribution
   sd_norm <- function(x){
-    as.vector(diff(quantile(x, c(pnorm(-1),pnorm(1))))/2)
+    as.vector(diff(quantile(x, c(pnorm(-1),pnorm(1)), na.rm=TRUE))/2)
   }
-  sds <- c(sd_norm(log(boots[,1])), sd_norm(boots[,2]))
-  lower <- estimates - crit * sds
-  upper <- estimates + crit * sds
+  sd_vals <- c(sd_norm(log(boots[,1])), sd_norm(boots[,2]))
+  lower <- estimates - crit * sd_vals
+  upper <- estimates + crit * sd_vals
 
   # Fall back on quantiles if lots of infinites
   if(!is.finite(lower[1])){
-    lower[1] <- log(quantile(boots[,1],(1-conf_level)/2))
+    lower[1] <- log(quantile(boots[,1],(1-conf_level)/2, na.rm=TRUE))
   }
+  if(!is.finite(upper[1])){
+    upper[1] <- log(quantile(boots[,1], 1-(1-conf_level)/2, na.rm=TRUE))
+  }
+  # rho is bounded below by zero: clamp before inverting so the 1/rho
+  # interval stays ordered and non-negative (upper bound Inf when the
+  # rho interval reaches 0)
+  if(is.finite(lower[2]) && lower[2] < 0)
+    lower[2] <- 0
 
   result <- data.frame(
     name = c("estimate", "1 / rho"),
