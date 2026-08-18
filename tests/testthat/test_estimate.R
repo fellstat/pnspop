@@ -35,6 +35,68 @@ test_that("main", {
 })
 
 
+test_that("random missingness does not corrupt estimates", {
+  # Guards the NA handling added 2026-08-17 (CODE_REVIEW.md 1.1 + the
+  # NA-hash subject drop in one_step_pse/cross_tree_pse).
+  #
+  # Thresholds were calibrated from 100-rep runs at 15% missingness on
+  # faux_pns. The subject-hash bounds for one_step and method="sample"
+  # are documented residual-sensitivity CEILINGS, not unbiasedness
+  # claims: estimators that rely on matches INTO the sample retain
+  # finite-sample sensitivity to dropped subjects (calibrated +11% and
+  # +9% respectively; pre-fix one_step was +57%). Alter-nomination
+  # missingness is design-equivalent to nomination subsampling and must
+  # be near-neutral for every estimator.
+  skip_on_cran()
+  data(faux_pns)
+  fh <- paste0("friend_hash", 1:11)
+  est_all <- function(hash, nbrs) {
+    c(one_step = one_step_pse(faux_pns$subject, faux_pns$recruiter, hash,
+                              faux_pns$degree, nbrs, rho = .001)$estimate,
+      sapply(c("network", "alter", "sample"), function(m)
+        cross_tree_pse(faux_pns$subject, faux_pns$recruiter, hash,
+                       faux_pns$degree, nbrs, rho = .001,
+                       method = m)$estimate))
+  }
+  base <- est_all(faux_pns$subject_hash, faux_pns[fh])
+
+  # Precondition: full-data estimates are finite and distinct
+  testthat::expect_true(all(is.finite(base)))
+  testthat::expect_gt(sd(base), 0)
+
+  # 15% of subject hashes set to NA
+  set.seed(42)
+  r_subj <- t(sapply(1:25, function(r) {
+    h <- faux_pns$subject_hash
+    h[sample.int(nrow(faux_pns), 30)] <- NA
+    est_all(h, faux_pns[fh])
+  }))
+  testthat::expect_true(all(is.finite(r_subj)))
+  testthat::expect_true(all(apply(r_subj, 2, sd) > 0)) # not degenerate
+  shift <- colMeans(r_subj) / base - 1
+  testthat::expect_lt(abs(shift[["network"]]), .05)
+  testthat::expect_lt(abs(shift[["alter"]]), .05)
+  testthat::expect_gt(shift[["sample"]], -.05)
+  testthat::expect_lt(shift[["sample"]], .15)   # known residual ceiling
+  testthat::expect_gt(shift[["one_step"]], -.05)
+  testthat::expect_lt(shift[["one_step"]], .20) # known residual ceiling
+
+  # 15% of alter nominations set to NA
+  set.seed(43)
+  r_nbrs <- t(sapply(1:25, function(r) {
+    nb <- as.matrix(faux_pns[fh])
+    pos <- which(!is.na(nb))
+    nb[sample(pos, round(.15 * length(pos)))] <- NA
+    est_all(faux_pns$subject_hash, as.data.frame(nb))
+  }))
+  testthat::expect_true(all(is.finite(r_nbrs)))
+  testthat::expect_true(all(apply(r_nbrs, 2, sd) > 0))
+  shift_nb <- colMeans(r_nbrs) / base - 1
+  for (k in names(shift_nb))
+    testthat::expect_lt(abs(shift_nb[[k]]), .05)
+})
+
+
 test_that("bias", {
   #
   # Check mean of estimates is near true value on a configuration graph

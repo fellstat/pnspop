@@ -222,10 +222,18 @@ one_step_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NUL
     stop("No missing subject identifiers allowed")
   if(anyNA(recruiter))
     stop("No missing recruiter identifiers allowed. Use a value like '-1' for seed subjects")
+  n_input <- length(subject)
+  if(length(recruiter) != n_input || length(subject_hash) != n_input ||
+     length(degree) != n_input)
+    stop("subject, recruiter, subject_hash and degree must all have the same length")
   if(anyNA(degree)){
+    if(all(is.na(degree)))
+      stop("All degrees are missing")
     warning(paste0(sum(is.na(degree)), " missing degrees. Imputing median"))
     degree[is.na(degree)] <- median(degree, na.rm=TRUE)
   }
+  if(any(degree <= 0))
+    stop("Degrees must be > 0")
 
   #convert to list if needed
   if(is.data.frame(nbrs) || is.matrix(nbrs)){
@@ -234,6 +242,8 @@ one_step_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NUL
     for(i in 1:nrow(df))
       nbrs[[i]] <- unlist(df[i,])
   }
+  if(length(nbrs) != n_input)
+    stop("nbrs must have one element (or row) per subject")
   nbrs <- lapply(nbrs, na.omit)
 
   s2 <- 1:length(subject)
@@ -241,19 +251,43 @@ one_step_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NUL
   r2[is.na(r2)] <- -1
   subject <- s2
   recruiter <- r2
-  #nbrs2 <- list()
-  #nbrs2[subject] <- nbrs
-  #nbrs <- nbrs2
-  ns <- length(na.omit(subject))
-  if(is.null(rho)){
-    nMatches <- sum(sapply(subject_hash,function(h) sum(subject_hash==h,na.rm=TRUE) - 1))
-    rho <- nMatches / (ns*(ns-1))
+  seed <- get_seed(subject, recruiter)
+
+  # Drop subjects with missing hashes, preserving the tree membership
+  # computed above so recruitment chains survive the removal (mirrors
+  # cross_tree_pse). An unmatchable subject left in the sample deflates
+  # the observed match count and inflates the estimate.
+  if(anyNA(subject_hash)){
+    na_hash <- is.na(subject_hash)
+    seed <- seed[!na_hash]
+    subject <- subject[!na_hash]
+    recruiter <- recruiter[!na_hash]
+    subject_hash <- subject_hash[!na_hash]
+    degree <- degree[!na_hash]
+    nbrs <- nbrs[!na_hash]
+    s2 <- 1:length(subject)
+    r2 <- match(recruiter, subject)
+    r2[is.na(r2)] <- -1
+    subject <- s2
+    recruiter <- r2
   }
-  outSet <- apply(cbind(subject,recruiter), 1, function(x){
-    excl <- subject_hash[recruiter == x[1]]
-    if(x[2] != -1)
-      excl <- c(excl, subject_hash[match(x[2], subject)])
-    nb <- nbrs[[x[1]]]
+  ns <- length(subject)
+  if(is.null(rho)){
+    # Count hash collisions among the non-missing hashes only: comparing
+    # against an NA hash must contribute nothing, not -1.
+    obs_hash <- na.omit(subject_hash)
+    n_obs <- length(obs_hash)
+    if(n_obs < 2)
+      stop("Cannot estimate rho: fewer than 2 non-missing subject hashes")
+    hash_counts <- table(obs_hash)
+    nMatches <- sum(hash_counts * (hash_counts - 1))
+    rho <- nMatches / (n_obs*(n_obs-1))
+  }
+  outSet <- lapply(seq_len(ns), function(j){
+    excl <- subject_hash[recruiter == subject[j]]
+    if(recruiter[j] != -1)
+      excl <- c(excl, subject_hash[match(recruiter[j], subject)])
+    nb <- nbrs[[j]]
     for(e in excl){
       i <- which(nb %in% e)
       if(length(i) > 0)
@@ -269,9 +303,6 @@ one_step_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NUL
       wts1 <- list()
       for(a in x){
         mId <- which(subject_hash == a)
-        #for(id in mId){
-        #  wts1[[length(wts1) + 1]] <- 1 / (dPopulation * rho * (N - 1) / (degree[id] - 1) + 1)
-        #}
         wts1[[length(wts1) + 1]] <- 1 / (dPopulation * rho * (N - 1) / (degree[mId] - 1) + 1)
       }
       wts1
@@ -289,16 +320,16 @@ one_step_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NUL
     opt <- uniroot(function(N) NTilda(N) - N, interval=c(2, 7000000000))
   }
 
-  seed <- get_seed(subject,recruiter)
+  # seed (tree membership) was computed before the NA-hash drop above
   seedIds <- unique(seed)
   outSets <- list()
   matchSets <- list()
   for(s in seedIds){
-    outSets[[s]] <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
-      excl <- subject_hash[recruiter == x[1]]
-      if(x[2] != -1)
-        excl <- c(excl, subject_hash[match(x[2], subject)])
-      nb <- nbrs[[x[1]]]
+    outSets[[s]] <- lapply(which(seed == s), function(j){
+      excl <- subject_hash[recruiter == subject[j]]
+      if(recruiter[j] != -1)
+        excl <- c(excl, subject_hash[match(recruiter[j], subject)])
+      nb <- nbrs[[j]]
       for(e in excl){
         i <- which(nb %in% e)
         if(length(i) > 0)
@@ -314,28 +345,12 @@ one_step_pse <- function(subject, recruiter, subject_hash, degree, nbrs, rho=NUL
     for(s in seedIds){
       outSet <- outSets[[s]]
       matchSet <- matchSets[[s]]
-      #outSet <- apply(cbind(subject[seed == s],recruiter[seed == s]), 1, function(x){
-      #  excl <- subject_hash[recruiter == x[1]]
-      #  if(x[2] != -1)
-      #    excl <- c(excl, subject_hash[match(x[2], subject)])
-      #  nb <- nbrs[[x[1]]]
-      #  for(e in excl){
-      #    i <- which(nb %in% e)
-      #    if(length(i) > 0)
-      #      nb <- nb[-i[1]]
-      #  }
-      #  nb
-      #})
       if(is.null(outSet))
         next
-      #matchSet <- lapply(outSet, function(x) x[x %in% subject_hash[seed != s]])
       wts <-  lapply(matchSet, function(x){
         wts1 <- list()
         for(a in x){
           mId <- which(subject_hash == a & seed != s)
-          #for(id in mId){
-          #  wts1[[length(wts1) + 1]] <- 1 / (dPopulation * rho * (N - 1) / (degree[id] - 1) + 1)
-          #}
           wts1[[length(wts1) + 1]] <- 1 / (dPopulation * rho * (N - 1) / (degree[mId] - 1) + 1)
         }
         wts1
