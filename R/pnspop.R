@@ -1077,20 +1077,9 @@ overlap_statistics <- function(subject_hash, nbrs){
   res
 }
 
-check_packages <- function(pkgs){
-  installed_pkgs <- utils::installed.packages() |> rownames()
-  miss <- pkgs[!(pkgs %in% installed_pkgs)]
-  if(length(miss) == 0)
-    return(FALSE)
-  if(interactive()){
-    cat("The following required pacakges are not installed: ", paste(miss, collapse = ", "))
-    install <- readline("Install now (y/n/c)?")
-    if(install != "y")
-      stop("missing packages")
-  }
-  utils::install.packages(miss)
-  return(TRUE)
-}
+# Dependency installation for the Shiny app lives in
+# inst/shinyui/global.R (sourced by shiny at app startup), by design --
+# see the note there.
 
 #' Launches the Shiny PNS Application
 #' @param ... Additional parameters to be passed to shiny::runApp
@@ -1098,12 +1087,8 @@ check_packages <- function(pkgs){
 shiny_pnspop <- function(...){
   app_dir <- system.file("shinyui", package = "pnspop")
   if (app_dir == "") {
-    stop("Could not find example directory. Try re-installing `shinyrecap`.", call. = FALSE)
+    stop("Could not find the app directory. Try re-installing `pnspop`.", call. = FALSE)
   }
-  check_packages(
-    c("shinyWidgets", "shinyhelper", "promises", "future", "ipc", "ggplot2",
-      "DT")
-  )
   shiny::runApp(app_dir, display.mode = "normal", ...)
 }
 
